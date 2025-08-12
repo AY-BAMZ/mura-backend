@@ -1,0 +1,680 @@
+import Vendor from "../models/Vendor.js";
+import User from "../models/User.js";
+import { Meal, MealGroup } from "../models/Meal.js";
+import Order from "../models/Order.js";
+import {
+  formatResponse,
+  getPagination,
+  cleanObject,
+} from "../utils/helpers.js";
+import logger from "../config/logger.js";
+
+// @desc    Get vendor profile
+// @route   GET /api/vendor/profile
+// @access  Private (Vendor)
+export const getVendorProfile = async (req, res) => {
+  try {
+    const vendor = await Vendor.findOne({ user: req.user.id }).populate(
+      "user",
+      "-password"
+    );
+
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor profile not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { vendor },
+    });
+  } catch (error) {
+    logger.error("Get vendor profile error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+// @desc    Update vendor profile
+// @route   PUT /api/vendor/profile
+// @access  Private (Vendor)
+export const updateVendorProfile = async (req, res) => {
+  try {
+    const {
+      businessName,
+      description,
+      cuisine,
+      businessHours,
+      deliveryInfo,
+      location,
+    } = req.body;
+
+    const vendor = await Vendor.findOne({ user: req.user.id });
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor profile not found",
+      });
+    }
+
+    // Update vendor data
+    const updateData = cleanObject({
+      businessName: businessName || vendor.businessName,
+      description: description || vendor.description,
+      cuisine: cuisine || vendor.cuisine,
+      businessHours: businessHours || vendor.businessHours,
+      deliveryInfo: deliveryInfo || vendor.deliveryInfo,
+    });
+
+    Object.assign(vendor, updateData);
+
+    // Update location if provided
+    if (location && location.coordinates) {
+      vendor.user.location = location;
+      await vendor.user.save();
+    }
+
+    await vendor.save();
+
+    const updatedVendor = await Vendor.findById(vendor._id).populate(
+      "user",
+      "-password"
+    );
+
+    res.json({
+      success: true,
+      message: "Profile updated successfully",
+      data: { vendor: updatedVendor },
+    });
+  } catch (error) {
+    logger.error("Update vendor profile error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+// @desc    Create meal group
+// @route   POST /api/vendor/meal-groups
+// @access  Private (Vendor)
+export const createMealGroup = async (req, res) => {
+  try {
+    const { name, description } = req.body;
+
+    const vendor = await Vendor.findOne({ user: req.user.id });
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor profile not found",
+      });
+    }
+
+    const mealGroup = await MealGroup.create({
+      name,
+      description,
+      vendor: vendor._id,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Meal group created successfully",
+      data: { mealGroup },
+    });
+  } catch (error) {
+    logger.error("Create meal group error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+// @desc    Get vendor meal groups
+// @route   GET /api/vendor/meal-groups
+// @access  Private (Vendor)
+export const getMealGroups = async (req, res) => {
+  try {
+    const vendor = await Vendor.findOne({ user: req.user.id });
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor profile not found",
+      });
+    }
+
+    const mealGroups = await MealGroup.find({ vendor: vendor._id }).sort({
+      createdAt: -1,
+    });
+
+    res.json({
+      success: true,
+      data: { mealGroups },
+    });
+  } catch (error) {
+    logger.error("Get meal groups error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+// @desc    Create meal
+// @route   POST /api/vendor/meals
+// @access  Private (Vendor)
+export const createMeal = async (req, res) => {
+  try {
+    const {
+      name,
+      description,
+      category,
+      mealGroup,
+      packages,
+      ingredients,
+      allergens,
+      dietaryInfo,
+      availability,
+      subscription,
+    } = req.body;
+
+    const vendor = await Vendor.findOne({ user: req.user.id });
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor profile not found",
+      });
+    }
+
+    const meal = await Meal.create({
+      name,
+      description,
+      vendor: vendor._id,
+      category,
+      mealGroup,
+      packages,
+      ingredients,
+      allergens,
+      dietaryInfo,
+      availability,
+      subscription,
+    });
+
+    // Update vendor metrics
+    vendor.metrics.totalMeals += 1;
+    vendor.metrics.activeMeals += 1;
+
+    // Update price range
+    const prices = packages.map((pkg) => pkg.price);
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+
+    if (vendor.priceRange.min === 0 || minPrice < vendor.priceRange.min) {
+      vendor.priceRange.min = minPrice;
+    }
+    if (maxPrice > vendor.priceRange.max) {
+      vendor.priceRange.max = maxPrice;
+    }
+
+    await vendor.save();
+
+    const populatedMeal = await Meal.findById(meal._id)
+      .populate("vendor", "businessName")
+      .populate("mealGroup", "name");
+
+    res.status(201).json({
+      success: true,
+      message: "Meal created successfully",
+      data: { meal: populatedMeal },
+    });
+  } catch (error) {
+    logger.error("Create meal error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+// @desc    Get vendor meals
+// @route   GET /api/vendor/meals
+// @access  Private (Vendor)
+export const getVendorMeals = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, status, category, search } = req.query;
+    const { skip, limit: limitNum } = getPagination(page, limit);
+
+    const vendor = await Vendor.findOne({ user: req.user.id });
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor profile not found",
+      });
+    }
+
+    // Build query
+    const query = { vendor: vendor._id };
+
+    if (status) query.status = status;
+    if (category) query.category = category;
+    if (search) {
+      query.$text = { $search: search };
+    }
+
+    const total = await Meal.countDocuments(query);
+    const meals = await Meal.find(query)
+      .populate("mealGroup", "name")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    res.json({
+      success: true,
+      data: {
+        meals,
+        pagination: {
+          page: parseInt(page),
+          limit: limitNum,
+          total,
+          pages: Math.ceil(total / limitNum),
+        },
+      },
+    });
+  } catch (error) {
+    logger.error("Get vendor meals error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+// @desc    Update meal
+// @route   PUT /api/vendor/meals/:id
+// @access  Private (Vendor)
+export const updateMeal = async (req, res) => {
+  try {
+    const vendor = await Vendor.findOne({ user: req.user.id });
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor profile not found",
+      });
+    }
+
+    const meal = await Meal.findOne({ _id: req.params.id, vendor: vendor._id });
+    if (!meal) {
+      return res.status(404).json({
+        success: false,
+        message: "Meal not found",
+      });
+    }
+
+    const updateData = cleanObject(req.body);
+    Object.assign(meal, updateData);
+    await meal.save();
+
+    const updatedMeal = await Meal.findById(meal._id)
+      .populate("vendor", "businessName")
+      .populate("mealGroup", "name");
+
+    res.json({
+      success: true,
+      message: "Meal updated successfully",
+      data: { meal: updatedMeal },
+    });
+  } catch (error) {
+    logger.error("Update meal error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+// @desc    Delete meal
+// @route   DELETE /api/vendor/meals/:id
+// @access  Private (Vendor)
+export const deleteMeal = async (req, res) => {
+  try {
+    const vendor = await Vendor.findOne({ user: req.user.id });
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor profile not found",
+      });
+    }
+
+    const meal = await Meal.findOne({ _id: req.params.id, vendor: vendor._id });
+    if (!meal) {
+      return res.status(404).json({
+        success: false,
+        message: "Meal not found",
+      });
+    }
+
+    // Set status to inactive instead of deleting
+    meal.status = "inactive";
+    await meal.save();
+
+    // Update vendor metrics
+    vendor.metrics.activeMeals -= 1;
+    await vendor.save();
+
+    res.json({
+      success: true,
+      message: "Meal disabled successfully",
+    });
+  } catch (error) {
+    logger.error("Delete meal error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+// @desc    Get vendor orders
+// @route   GET /api/vendor/orders
+// @access  Private (Vendor)
+export const getVendorOrders = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, status, startDate, endDate } = req.query;
+    const { skip, limit: limitNum } = getPagination(page, limit);
+
+    const vendor = await Vendor.findOne({ user: req.user.id });
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor profile not found",
+      });
+    }
+
+    // Build query
+    const query = { vendor: vendor._id };
+
+    if (status) query.status = status;
+    if (startDate && endDate) {
+      query.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
+
+    const total = await Order.countDocuments(query);
+    const orders = await Order.find(query)
+      .populate("customer", "firstName lastName email")
+      .populate("rider", "firstName lastName")
+      .populate("items.meal", "name")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    res.json({
+      success: true,
+      data: {
+        orders,
+        pagination: {
+          page: parseInt(page),
+          limit: limitNum,
+          total,
+          pages: Math.ceil(total / limitNum),
+        },
+      },
+    });
+  } catch (error) {
+    logger.error("Get vendor orders error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+// @desc    Update order status
+// @route   PUT /api/vendor/orders/:id/status
+// @access  Private (Vendor)
+export const updateOrderStatus = async (req, res) => {
+  try {
+    const { status, notes } = req.body;
+
+    const vendor = await Vendor.findOne({ user: req.user.id });
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor profile not found",
+      });
+    }
+
+    const order = await Order.findOne({
+      _id: req.params.id,
+      vendor: vendor._id,
+    });
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    // Update order status
+    order.status = status;
+    order.timeline.push({
+      status,
+      timestamp: new Date(),
+      updatedBy: req.user.id,
+      notes,
+    });
+
+    await order.save();
+
+    // Emit real-time update
+    req.io.to(`order_${order._id}`).emit("orderStatusUpdate", {
+      orderId: order._id,
+      status,
+      timestamp: new Date(),
+    });
+
+    res.json({
+      success: true,
+      message: "Order status updated successfully",
+      data: { order },
+    });
+  } catch (error) {
+    logger.error("Update order status error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+// @desc    Get vendor analytics
+// @route   GET /api/vendor/analytics
+// @access  Private (Vendor)
+export const getVendorAnalytics = async (req, res) => {
+  try {
+    const { period = "30d" } = req.query;
+
+    const vendor = await Vendor.findOne({ user: req.user.id });
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor profile not found",
+      });
+    }
+
+    // Calculate date range
+    const endDate = new Date();
+    const startDate = new Date();
+
+    switch (period) {
+      case "7d":
+        startDate.setDate(endDate.getDate() - 7);
+        break;
+      case "30d":
+        startDate.setDate(endDate.getDate() - 30);
+        break;
+      case "90d":
+        startDate.setDate(endDate.getDate() - 90);
+        break;
+      default:
+        startDate.setDate(endDate.getDate() - 30);
+    }
+
+    // Get analytics data
+    const [orders, totalRevenue, mealStats] = await Promise.all([
+      Order.find({
+        vendor: vendor._id,
+        createdAt: { $gte: startDate, $lte: endDate },
+      }),
+      Order.aggregate([
+        {
+          $match: {
+            vendor: vendor._id,
+            status: "delivered",
+            createdAt: { $gte: startDate, $lte: endDate },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$pricing.total" },
+          },
+        },
+      ]),
+      Meal.aggregate([
+        {
+          $match: { vendor: vendor._id },
+        },
+        {
+          $group: {
+            _id: "$status",
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+    ]);
+
+    // Calculate metrics
+    const completedOrders = orders.filter(
+      (order) => order.status === "delivered"
+    ).length;
+    const cancelledOrders = orders.filter(
+      (order) => order.status === "cancelled"
+    ).length;
+    const pendingOrders = orders.filter((order) =>
+      ["pending", "confirmed", "preparing"].includes(order.status)
+    ).length;
+
+    const analytics = {
+      orders: {
+        total: orders.length,
+        completed: completedOrders,
+        cancelled: cancelledOrders,
+        pending: pendingOrders,
+        completionRate:
+          orders.length > 0
+            ? ((completedOrders / orders.length) * 100).toFixed(2)
+            : 0,
+      },
+      revenue: {
+        total: totalRevenue[0]?.total || 0,
+        averageOrderValue:
+          completedOrders > 0
+            ? (totalRevenue[0]?.total / completedOrders).toFixed(2)
+            : 0,
+      },
+      meals: {
+        total: vendor.metrics.totalMeals,
+        active: vendor.metrics.activeMeals,
+        inactive: mealStats.find((stat) => stat._id === "inactive")?.count || 0,
+      },
+      rating: {
+        average: vendor.rating.average,
+        count: vendor.rating.count,
+      },
+    };
+
+    res.json({
+      success: true,
+      data: { analytics },
+    });
+  } catch (error) {
+    logger.error("Get vendor analytics error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+// @desc    Get vendor earnings
+// @route   GET /api/vendor/earnings
+// @access  Private (Vendor)
+export const getVendorEarnings = async (req, res) => {
+  try {
+    const vendor = await Vendor.findOne({ user: req.user.id });
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor profile not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        earnings: vendor.earnings,
+      },
+    });
+  } catch (error) {
+    logger.error("Get vendor earnings error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+// @desc    Update bank details
+// @route   PUT /api/vendor/bank-details
+// @access  Private (Vendor)
+export const updateBankDetails = async (req, res) => {
+  try {
+    const { accountName, accountNumber, bankName, routingNumber } = req.body;
+
+    const vendor = await Vendor.findOne({ user: req.user.id });
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor profile not found",
+      });
+    }
+
+    vendor.bankDetails = {
+      accountName,
+      accountNumber,
+      bankName,
+      routingNumber,
+      isVerified: false, // Will be verified by admin
+    };
+
+    await vendor.save();
+
+    res.json({
+      success: true,
+      message: "Bank details updated successfully. Verification pending.",
+    });
+  } catch (error) {
+    logger.error("Update bank details error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
