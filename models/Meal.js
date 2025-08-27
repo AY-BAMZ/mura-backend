@@ -48,6 +48,7 @@ const packageSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  images: [String],
 });
 
 const mealSchema = new mongoose.Schema(
@@ -79,6 +80,11 @@ const mealSchema = new mongoose.Schema(
     images: {
       main: String,
       gallery: [String],
+    },
+    prepTime: {
+      type: Number,
+      required: true,
+      min: 0,
     },
     packages: [packageSchema],
     ingredients: [String],

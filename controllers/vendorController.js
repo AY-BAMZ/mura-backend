@@ -258,11 +258,14 @@ export const getVendorMeals = async (req, res) => {
 
     // Build query
     const query = { vendor: vendor._id };
-
-    if (status) query.status = status;
-    if (category) query.category = category;
-    if (search) {
-      query.$text = { $search: search };
+    if (status && ["active", "inactive", "out_of_stock"].includes(status)) {
+      query.status = status;
+    }
+    if (category && ["set_meal", "meal_prep"].includes(category)) {
+      query.category = category;
+    }
+    if (search && typeof search === "string" && search.trim().length > 0) {
+      query.$text = { $search: search.trim() };
     }
 
     const total = await Meal.countDocuments(query);
@@ -270,12 +273,25 @@ export const getVendorMeals = async (req, res) => {
       .populate("mealGroup", "name")
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limitNum);
+      .limit(limitNum)
+      .lean();
+
+    // Add priceRange to each meal
+    const mealsWithPriceRange = meals.map((meal) => {
+      let min = 0,
+        max = 0;
+      if (Array.isArray(meal.packages) && meal.packages.length > 0) {
+        const prices = meal.packages.map((pkg) => pkg.price);
+        min = Math.min(...prices);
+        max = Math.max(...prices);
+      }
+      return { ...meal, priceRange: { min, max } };
+    });
 
     res.json({
       success: true,
       data: {
-        meals,
+        meals: mealsWithPriceRange,
         pagination: {
           page: parseInt(page),
           limit: limitNum,
