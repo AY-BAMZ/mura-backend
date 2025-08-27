@@ -111,6 +111,41 @@ export const validateMealCreation = [
     .isFloat({ min: 0.01 })
     .withMessage("Package price must be greater than 0"),
 
+  body("prepTime")
+    .isInt({ min: 0 })
+    .withMessage("Preparation time must be a positive integer"),
+
+  body("images")
+    .isObject()
+    .withMessage("Images must be an object with main and gallery fields"),
+
+  body("images.main")
+    .notEmpty()
+    .withMessage("Main image is required")
+    .bail()
+    .custom((value) => {
+      const validImageTypes = ["jpg", "jpeg", "png", "gif"];
+      const ext = value.split(".").pop();
+      if (!validImageTypes.includes(ext)) {
+        throw new Error("Invalid main image type");
+      }
+      return true;
+    }),
+
+  body("images.gallery")
+    .isArray()
+    .withMessage("Gallery must be an array")
+    .custom((value) => {
+      const validImageTypes = ["jpg", "jpeg", "png", "gif"];
+      for (const image of value) {
+        const ext = image.split(".").pop();
+        if (!validImageTypes.includes(ext)) {
+          throw new Error("Invalid gallery image type");
+        }
+      }
+      return true;
+    }),
+
   handleValidationErrors,
 ];
 
