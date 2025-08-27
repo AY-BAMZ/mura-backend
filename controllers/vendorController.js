@@ -180,6 +180,8 @@ export const createMeal = async (req, res) => {
       dietaryInfo,
       availability,
       subscription,
+      prepTime,
+      images,
     } = req.body;
 
     const vendor = await Vendor.findOne({ user: req.user.id });
@@ -202,6 +204,8 @@ export const createMeal = async (req, res) => {
       dietaryInfo,
       availability,
       subscription,
+      prepTime,
+      images,
     });
 
     // Update vendor metrics
