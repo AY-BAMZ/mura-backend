@@ -265,16 +265,10 @@ export const getVendorMeals = async (req, res) => {
     if (status && ["active", "inactive", "out_of_stock"].includes(status)) {
       query.status = status;
     }
-    // Normalize category to accept plural/singular
-    let normalizedCategory = category;
-    if (category) {
-      const cat = category.toLowerCase();
-      if (["set_meal", "set_meals"].includes(cat))
-        normalizedCategory = "set_meal";
-      else if (["meal_prep", "meal_preps"].includes(cat))
-        normalizedCategory = "meal_prep";
-      else normalizedCategory = null;
-      if (normalizedCategory) query.category = normalizedCategory;
+    if (category === "set_meal") {
+      query.category = "set_meal";
+    } else if (category && ["meal_prep"].includes(category)) {
+      query.category = category;
     }
     if (search && typeof search === "string" && search.trim().length > 0) {
       query.$text = { $search: search.trim() };
