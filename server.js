@@ -33,6 +33,8 @@ dotenv.config();
 connectDB();
 
 const app = express();
+// Enable trust proxy for correct client IP detection behind proxies (e.g., for express-rate-limit)
+app.set("trust proxy", 1);
 const server = createServer(app);
 const io = new SocketIOServer(server, {
   cors: {
