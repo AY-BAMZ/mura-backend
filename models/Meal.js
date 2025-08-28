@@ -67,6 +67,14 @@ const mealSchema = new mongoose.Schema(
       main: String,
       gallery: [String],
     },
+    calories: {
+      type: Number,
+      required: false,
+    },
+    protein: {
+      type: Number,
+      required: false,
+    },
     price: {
       type: Number,
       required: true,
