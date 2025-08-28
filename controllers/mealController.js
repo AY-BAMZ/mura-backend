@@ -336,7 +336,9 @@ export const getVendorsByMealCategory = async (req, res) => {
 
     // Find vendors
     const vendors = await Vendor.find({ _id: { $in: paginatedVendorIds } })
-      .select("businessName rating deliveryInfo images user")
+      .select(
+        "businessName rating deliveryInfo images user description address businessType businessHours"
+      )
       .lean();
 
     res.json({
