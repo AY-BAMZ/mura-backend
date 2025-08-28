@@ -5,6 +5,7 @@ import { Meal } from "../models/Meal.js";
 import Vendor from "../models/Vendor.js";
 import { getPagination } from "../utils/helpers.js";
 import logger from "../config/logger.js";
+import Customer from "../models/Customer.js";
 
 // @desc    Search meals
 // @route   GET /api/meals/search
@@ -369,13 +370,12 @@ export const getMealsByVendorAndCategory = async (req, res) => {
     const { vendorId, category } = req.params;
     const { page = 1, limit = 12 } = req.query;
     const { skip, limit: limitNum } = getPagination(page, limit);
-    const total = await Meal.countDocuments({
-      vendor: vendorId,
-      category,
-      status: "active",
-    });
+
+    // Find vendor
     const vendor = await Vendor.findById(vendorId);
-    const meals = await Meal.find({
+
+    // Find meals
+    let meals = await Meal.find({
       vendor: vendorId,
       category,
       status: "active",
@@ -383,7 +383,34 @@ export const getMealsByVendorAndCategory = async (req, res) => {
       .populate("mealGroup", "name")
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limitNum);
+      .limit(limitNum)
+      .lean();
+
+    const total = await Meal.countDocuments({
+      vendor: vendorId,
+      category,
+      status: "active",
+    });
+
+    // Get user's favorite meals if authenticated
+    let favoriteMealIds = [];
+    if (req.user && req.user.id) {
+      const customer = await Customer.findOne({ user: req.user.id }).lean();
+      if (
+        customer &&
+        customer.favorites &&
+        Array.isArray(customer.favorites.meals)
+      ) {
+        favoriteMealIds = customer.favorites.meals.map((id) => id.toString());
+      }
+    }
+
+    // Add isFavorite property to each meal
+    meals = meals.map((meal) => ({
+      ...meal,
+      isFavorite: favoriteMealIds.includes(meal._id.toString()),
+    }));
+
     res.json({
       success: true,
       data: {
