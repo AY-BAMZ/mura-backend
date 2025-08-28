@@ -305,15 +305,52 @@ export const getMealsByVendor = async (req, res) => {
 export const getVendorsByMealCategory = async (req, res) => {
   try {
     const { category } = req.params;
-    // Find vendors who have at least one meal in the given category
-    const vendorIds = await Meal.distinct("vendor", {
-      category,
-      status: "active",
-    });
-    const vendors = await Vendor.find({ _id: { $in: vendorIds } })
+    const { page = 1, limit = 12, queryString, minPrice, maxPrice } = req.query;
+
+    const { skip, limit: limitNum } = getPagination(page, limit);
+
+    // Build meal query
+    const mealQuery = { category, status: "active" };
+
+    // Text search on meal name/description
+    if (queryString) {
+      mealQuery.$or = [
+        { name: { $regex: queryString, $options: "i" } },
+        { description: { $regex: queryString, $options: "i" } },
+      ];
+    }
+
+    // Price filter
+    if (minPrice || maxPrice) {
+      mealQuery.price = {};
+      if (minPrice) mealQuery.price.$gte = Number(minPrice);
+      if (maxPrice) mealQuery.price.$lte = Number(maxPrice);
+    }
+
+    // Find vendor IDs with at least one meal matching the query
+    const vendorIds = await Meal.distinct("vendor", mealQuery);
+
+    // Pagination for vendors
+    const total = vendorIds.length;
+    const paginatedVendorIds = vendorIds.slice(skip, skip + limitNum);
+
+    // Find vendors
+    const vendors = await Vendor.find({ _id: { $in: paginatedVendorIds } })
       .select("businessName rating deliveryInfo images")
       .lean();
-    res.json({ success: true, data: { vendors } });
+
+    res.json({
+      success: true,
+      data: {
+        vendors,
+        pagination: {
+          page: parseInt(page),
+          limit: limitNum,
+          total,
+          pages: Math.ceil(total / limitNum),
+        },
+      },
+    });
   } catch (error) {
     logger.error("Get vendors by meal category error", {
       error: error.message,

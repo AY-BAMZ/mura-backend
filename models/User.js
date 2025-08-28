@@ -40,6 +40,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    expoToken: {
+      type: String,
+      default: null,
+    },
     isVerified: {
       type: Boolean,
       default: false,
