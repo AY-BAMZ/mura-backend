@@ -5,7 +5,14 @@ import {
   getFeaturedMeals,
   getAllMeals,
   getMealsByVendor,
+  getVendorsByMealCategory,
+  getMealsByVendorAndCategory,
 } from "../controllers/mealController.js";
+// Get vendors with meals in a specific category
+router.get("/vendors-by-category/:category", getVendorsByMealCategory);
+
+// Get all meals of a specific category for a vendor
+router.get("/vendor/:vendorId/category/:category", getMealsByVendorAndCategory);
 
 const router = express.Router();
 

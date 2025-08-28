@@ -50,6 +50,9 @@ router.put("/orders/:id/status", updateOrderStatus);
 router.get("/analytics", getVendorAnalytics);
 router.get("/earnings", getVendorEarnings);
 
+// Withdraw earnings
+router.post("/withdraw", withdrawEarnings);
+
 // Bank details
 router.put("/bank-details", updateBankDetails);
 

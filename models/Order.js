@@ -6,12 +6,17 @@ const orderItemSchema = new mongoose.Schema({
     ref: "Meal",
     required: true,
   },
-  package: {
-    _id: {
-      type: mongoose.Schema.Types.ObjectId,
-      required: true,
-    },
-    title: String,
+  riderWithdrawn: {
+    type: Boolean,
+    default: false,
+  },
+  withdrawn: {
+    type: Boolean,
+    default: false,
+  },
+  // package removed
+  variant: {
+    name: String,
     price: Number,
     description: String,
   },
@@ -63,7 +68,11 @@ const orderSchema = new mongoose.Schema(
         type: mongoose.Schema.Types.ObjectId,
         default: null,
       },
-      interval: String,
+      interval: {
+        type: String,
+        enum: ["daily", "weekly", "biweekly", "monthly"],
+        default: null,
+      },
       nextDelivery: Date,
     },
     pricing: {
@@ -149,7 +158,7 @@ const orderSchema = new mongoose.Schema(
         notes: String,
       },
     ],
-    ratings: {
+    reviews: {
       vendor: {
         rating: { type: Number, min: 1, max: 5 },
         review: String,

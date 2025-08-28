@@ -1,3 +1,53 @@
+// @desc    Get vendors with meals in a specific category
+// @route   GET /api/meals/vendors-by-category/:category
+// @access  Public
+import Vendor from "../models/Vendor.js";
+export const getVendorsByMealCategory = async (req, res) => {
+  try {
+    const { category } = req.params;
+    // Find vendors who have at least one meal in the given category
+    const vendorIds = await Meal.distinct("vendor", { category, status: "active" });
+    const vendors = await Vendor.find({ _id: { $in: vendorIds } })
+      .select("businessName rating deliveryInfo images")
+      .lean();
+    res.json({ success: true, data: { vendors } });
+  } catch (error) {
+    logger.error("Get vendors by meal category error", { error: error.message });
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// @desc    Get all meals of a specific category for a vendor
+// @route   GET /api/meals/vendor/:vendorId/category/:category
+// @access  Public
+export const getMealsByVendorAndCategory = async (req, res) => {
+  try {
+    const { vendorId, category } = req.params;
+    const { page = 1, limit = 12 } = req.query;
+    const { skip, limit: limitNum } = getPagination(page, limit);
+    const total = await Meal.countDocuments({ vendor: vendorId, category, status: "active" });
+    const meals = await Meal.find({ vendor: vendorId, category, status: "active" })
+      .populate("mealGroup", "name")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
+    res.json({
+      success: true,
+      data: {
+        meals,
+        pagination: {
+          page: parseInt(page),
+          limit: limitNum,
+          total,
+          pages: Math.ceil(total / limitNum),
+        },
+      },
+    });
+  } catch (error) {
+    logger.error("Get meals by vendor and category error", { error: error.message });
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
 import { Meal } from "../models/Meal.js";
 import Vendor from "../models/Vendor.js";
 import { getPagination } from "../utils/helpers.js";

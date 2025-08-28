@@ -43,6 +43,7 @@ router.post(
 
 // Order management
 router.get("/:id", getOrderDetails);
+router.get("/:id/track", trackOrder);
 router.put("/:id/cancel", cancelOrder);
 
 // Customer-only routes

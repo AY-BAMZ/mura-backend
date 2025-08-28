@@ -1,3 +1,23 @@
+// @desc    Get real-time order tracking (timeline)
+// @route   GET /api/orders/:id/track
+// @access  Private (Customer, Vendor, Rider)
+export const trackOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id).select("timeline status");
+    if (!order) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
+    }
+    res.json({
+      success: true,
+      data: { timeline: order.timeline, status: order.status },
+    });
+  } catch (error) {
+    logger.error("Track order error", { error: error.message });
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
 import Order from "../models/Order.js";
 import Customer from "../models/Customer.js";
 import Vendor from "../models/Vendor.js";

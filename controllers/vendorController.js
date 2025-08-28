@@ -12,6 +12,66 @@ import logger from "../config/logger.js";
 // @desc    Get vendor profile
 // @route   GET /api/vendor/profile
 // @access  Private (Vendor)
+// @desc    Vendor withdraw earnings (after 48 hours of order completion)
+// @route   POST /api/vendor/withdraw
+// @access  Private (Vendor)
+export const withdrawEarnings = async (req, res) => {
+  try {
+    const vendor = await Vendor.findOne({ user: req.user.id });
+    if (!vendor) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Vendor profile not found" });
+    }
+
+    // Find all completed orders for this vendor, completed more than 48 hours ago, and not yet withdrawn
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - 48 * 60 * 60 * 1000); // 48 hours ago
+    const orders = await Order.find({
+      vendor: vendor._id,
+      status: "delivered",
+      paymentStatus: "completed",
+      updatedAt: { $lte: cutoff },
+      withdrawn: { $ne: true },
+    });
+
+    if (!orders.length) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "No eligible earnings to withdraw yet.",
+        });
+    }
+
+    // Calculate total withdrawable amount
+    let totalWithdraw = 0;
+    for (const order of orders) {
+      const earnings = order.calculateEarnings();
+      totalWithdraw += earnings.vendorEarnings;
+      order.withdrawn = true;
+      await order.save();
+    }
+
+    // Update vendor wallet
+    vendor.earnings.availableBalance += totalWithdraw;
+    vendor.earnings.pendingBalance -= totalWithdraw;
+    await vendor.save();
+
+    res.json({
+      success: true,
+      message: `Withdrawn ₦${totalWithdraw} to your wallet.`,
+      data: {
+        amount: totalWithdraw,
+        availableBalance: vendor.earnings.availableBalance,
+      },
+    });
+  } catch (error) {
+    logger.error("Vendor withdraw error", { error: error.message });
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 export const getVendorProfile = async (req, res) => {
   try {
     const vendor = await Vendor.findOne({ user: req.user.id }).populate(

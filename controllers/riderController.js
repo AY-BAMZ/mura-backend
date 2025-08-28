@@ -640,3 +640,63 @@ export const updateBankDetails = async (req, res) => {
     });
   }
 };
+
+// @desc    Rider withdraw earnings (after 48 hours of order completion)
+// @route   POST /api/rider/withdraw
+// @access  Private (Rider)
+export const withdrawEarnings = async (req, res) => {
+  try {
+    const rider = await Rider.findOne({ user: req.user.id });
+    if (!rider) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Rider profile not found" });
+    }
+
+    // Find all completed orders for this rider, completed more than 48 hours ago, and not yet withdrawn
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - 48 * 60 * 60 * 1000); // 48 hours ago
+    const orders = await Order.find({
+      rider: rider._id,
+      status: "delivered",
+      paymentStatus: "completed",
+      updatedAt: { $lte: cutoff },
+      riderWithdrawn: { $ne: true },
+    });
+
+    if (!orders.length) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "No eligible earnings to withdraw yet.",
+        });
+    }
+
+    // Calculate total withdrawable amount
+    let totalWithdraw = 0;
+    for (const order of orders) {
+      const earnings = order.calculateEarnings();
+      totalWithdraw += earnings.riderEarnings;
+      order.riderWithdrawn = true;
+      await order.save();
+    }
+
+    // Update rider wallet
+    rider.earnings.availableBalance += totalWithdraw;
+    rider.earnings.pendingBalance -= totalWithdraw;
+    await rider.save();
+
+    res.json({
+      success: true,
+      message: `Withdrawn ₦${totalWithdraw} to your wallet.`,
+      data: {
+        amount: totalWithdraw,
+        availableBalance: rider.earnings.availableBalance,
+      },
+    });
+  } catch (error) {
+    logger.error("Rider withdraw error", { error: error.message });
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};

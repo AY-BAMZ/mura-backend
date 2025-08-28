@@ -13,6 +13,9 @@ import {
   updateBankDetails,
 } from "../controllers/riderController.js";
 import {
+  withdrawEarnings,
+} from "../controllers/riderController.js";
+import {
   protect,
   authorize,
   requireVerified,
@@ -45,5 +48,7 @@ router.get("/earnings", getRiderEarnings);
 
 // Bank details
 router.put("/bank-details", updateBankDetails);
+// Withdraw earnings
+router.post("/withdraw", withdrawEarnings);
 
 export default router;

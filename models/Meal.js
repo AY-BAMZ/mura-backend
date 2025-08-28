@@ -19,36 +19,25 @@ const mealGroupSchema = new mongoose.Schema(
   }
 );
 
-const packageSchema = new mongoose.Schema({
-  title: {
-    type: String,
-    required: true,
-    trim: true,
-  },
+// Variant schema for meal variants (e.g., size, flavor)
+const variantSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  price: { type: Number, required: true, min: 0 },
   description: String,
-  price: {
-    type: Number,
-    required: true,
-    min: 0,
-  },
-  nutritionInfo: {
-    calories: Number,
-    protein: Number, // in grams
-    carbs: Number,
-    fat: Number,
-    fiber: Number,
-  },
-  portionInfo: {
-    weight: Number, // in grams
-    volume: Number, // in ml/liters
-    servings: Number,
-  },
-  tags: [String],
-  isAvailable: {
-    type: Boolean,
-    default: true,
-  },
   images: [String],
+});
+
+// Review schema for meal reviews
+const mealReviewSchema = new mongoose.Schema({
+  order: { type: mongoose.Schema.Types.ObjectId, ref: "Order", required: true },
+  customer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Customer",
+    required: true,
+  },
+  rating: { type: Number, min: 1, max: 5, required: true },
+  review: String,
+  createdAt: { type: Date, default: Date.now },
 });
 
 const mealSchema = new mongoose.Schema(
@@ -72,6 +61,11 @@ const mealSchema = new mongoose.Schema(
       enum: ["set_meal", "meal_prep"],
       required: true,
     },
+    mealType: {
+      type: String,
+      required: true,
+      trim: true, // e.g., main, dessert, solid, light food, etc.
+    },
     mealGroup: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "MealGroup",
@@ -81,12 +75,14 @@ const mealSchema = new mongoose.Schema(
       main: String,
       gallery: [String],
     },
+    variants: [variantSchema],
     prepTime: {
       type: Number,
       required: true,
       min: 0,
     },
-    packages: [packageSchema],
+    // packages removed
+    reviews: [mealReviewSchema],
     ingredients: [String],
     allergens: [String],
     dietaryInfo: {
@@ -113,7 +109,7 @@ const mealSchema = new mongoose.Schema(
       intervals: [
         {
           type: String,
-          enum: ["weekly", "biweekly", "monthly"],
+          enum: ["daily", "weekly", "biweekly", "monthly"],
         },
       ],
     },
@@ -144,9 +140,8 @@ mealSchema.index({ category: 1, status: 1 });
 
 // Virtual for price range
 mealSchema.virtual("priceRange").get(function () {
-  if (this.packages.length === 0) return { min: 0, max: 0 };
-
-  const prices = this.packages.map((pkg) => pkg.price);
+  if (!this.variants || this.variants.length === 0) return { min: 0, max: 0 };
+  const prices = this.variants.map((v) => v.price);
   return {
     min: Math.min(...prices),
     max: Math.max(...prices),
