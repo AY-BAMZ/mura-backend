@@ -9,13 +9,13 @@ import {
   getMealsByVendorAndCategory,
 } from "../controllers/mealController.js";
 // Get vendors with meals in a specific category
+
+const router = express.Router();
+
 router.get("/vendors-by-category/:category", getVendorsByMealCategory);
 
 // Get all meals of a specific category for a vendor
 router.get("/vendor/:vendorId/category/:category", getMealsByVendorAndCategory);
-
-const router = express.Router();
-
 // Public routes for meal discovery
 router.get("/search", searchMeals);
 router.get("/featured", getFeaturedMeals);

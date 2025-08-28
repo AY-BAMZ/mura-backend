@@ -13,6 +13,7 @@ import {
   getVendorAnalytics,
   getVendorEarnings,
   updateBankDetails,
+  withdrawEarnings,
 } from "../controllers/vendorController.js";
 import {
   protect,

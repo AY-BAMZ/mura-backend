@@ -6,6 +6,7 @@ import {
   cancelOrder,
   rateOrder,
   handleStripeWebhook,
+  trackOrder,
 } from "../controllers/orderController.js";
 import {
   protect,

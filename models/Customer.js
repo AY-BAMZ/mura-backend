@@ -6,10 +6,6 @@ const cartItemSchema = new mongoose.Schema({
     ref: "Meal",
     required: true,
   },
-  package: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
-  },
   quantity: {
     type: Number,
     required: true,
@@ -84,10 +80,6 @@ const customerSchema = new mongoose.Schema(
         meal: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Meal",
-        },
-        package: {
-          type: mongoose.Schema.Types.ObjectId,
-          required: true,
         },
         quantity: Number,
         interval: {

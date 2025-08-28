@@ -597,7 +597,7 @@ export const getMealDetails = async (req, res) => {
 // @access  Private (Customer)
 export const addToCart = async (req, res) => {
   try {
-    const { mealId, packageId, quantity, deliveryDate } = req.body;
+    const { mealId, quantity, deliveryDate } = req.body;
 
     const customer = await Customer.findOne({ user: req.user.id });
     if (!customer) {
@@ -616,19 +616,10 @@ export const addToCart = async (req, res) => {
       });
     }
 
-    const selectedPackage = meal.packages.id(packageId);
-    if (!selectedPackage) {
-      return res.status(404).json({
-        success: false,
-        message: "Package not found",
-      });
-    }
-
     // Check if item already exists in cart
     const existingItemIndex = customer.cart.findIndex(
       (item) =>
         item.meal.toString() === mealId &&
-        item.package.toString() === packageId &&
         item.deliveryDate.toDateString() ===
           new Date(deliveryDate).toDateString()
     );
@@ -640,9 +631,8 @@ export const addToCart = async (req, res) => {
       // Add new item
       customer.cart.push({
         meal: mealId,
-        package: packageId,
         quantity,
-        price: selectedPackage.price,
+        price: meal.price,
         deliveryDate: new Date(deliveryDate),
       });
     }
@@ -680,7 +670,7 @@ export const getCart = async (req, res) => {
   try {
     const customer = await Customer.findOne({ user: req.user.id }).populate({
       path: "cart.meal",
-      select: "name images vendor packages",
+      select: "name images vendor",
       populate: {
         path: "vendor",
         select: "businessName deliveryInfo",
@@ -877,7 +867,7 @@ export const getFavorites = async (req, res) => {
       })
       .populate({
         path: "favorites.meals",
-        select: "name images rating packages vendor",
+        select: "name images rating vendor",
         populate: {
           path: "vendor",
           select: "businessName",
@@ -959,8 +949,7 @@ export const getCustomerOrders = async (req, res) => {
 // @access  Private (Customer)
 export const subscribeToPackage = async (req, res) => {
   try {
-    const { selectedPackage, meals, deliveryAddress, startDate, frequency } =
-      req.body;
+    const { meals, deliveryAddress, startDate, frequency } = req.body;
 
     const customer = await Customer.findOne({ user: req.user.id });
     if (!customer) {
@@ -972,7 +961,6 @@ export const subscribeToPackage = async (req, res) => {
 
     // Create subscription object
     const subscription = {
-      selectedPackage,
       meals,
       deliveryAddress,
       startDate: new Date(startDate),

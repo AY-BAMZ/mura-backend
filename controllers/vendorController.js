@@ -336,22 +336,10 @@ export const getVendorMeals = async (req, res) => {
       .limit(limitNum)
       .lean();
 
-    // Add priceRange to each meal
-    const mealsWithPriceRange = meals.map((meal) => {
-      let min = 0,
-        max = 0;
-      if (Array.isArray(meal.packages) && meal.packages.length > 0) {
-        const prices = meal.packages.map((pkg) => pkg.price);
-        min = Math.min(...prices);
-        max = Math.max(...prices);
-      }
-      return { ...meal, priceRange: { min, max } };
-    });
-
     res.json({
       success: true,
       data: {
-        meals: mealsWithPriceRange,
+        meals,
         pagination: {
           page: parseInt(page),
           limit: limitNum,
