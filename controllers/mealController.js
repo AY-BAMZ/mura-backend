@@ -6,13 +6,18 @@ export const getVendorsByMealCategory = async (req, res) => {
   try {
     const { category } = req.params;
     // Find vendors who have at least one meal in the given category
-    const vendorIds = await Meal.distinct("vendor", { category, status: "active" });
+    const vendorIds = await Meal.distinct("vendor", {
+      category,
+      status: "active",
+    });
     const vendors = await Vendor.find({ _id: { $in: vendorIds } })
       .select("businessName rating deliveryInfo images")
       .lean();
     res.json({ success: true, data: { vendors } });
   } catch (error) {
-    logger.error("Get vendors by meal category error", { error: error.message });
+    logger.error("Get vendors by meal category error", {
+      error: error.message,
+    });
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -25,8 +30,16 @@ export const getMealsByVendorAndCategory = async (req, res) => {
     const { vendorId, category } = req.params;
     const { page = 1, limit = 12 } = req.query;
     const { skip, limit: limitNum } = getPagination(page, limit);
-    const total = await Meal.countDocuments({ vendor: vendorId, category, status: "active" });
-    const meals = await Meal.find({ vendor: vendorId, category, status: "active" })
+    const total = await Meal.countDocuments({
+      vendor: vendorId,
+      category,
+      status: "active",
+    });
+    const meals = await Meal.find({
+      vendor: vendorId,
+      category,
+      status: "active",
+    })
       .populate("mealGroup", "name")
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -44,7 +57,9 @@ export const getMealsByVendorAndCategory = async (req, res) => {
       },
     });
   } catch (error) {
-    logger.error("Get meals by vendor and category error", { error: error.message });
+    logger.error("Get meals by vendor and category error", {
+      error: error.message,
+    });
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -126,10 +141,10 @@ export const searchMeals = async (req, res) => {
         sortOptions = { createdAt: -1 };
         break;
       case "price-low":
-        sortOptions = { "packages.price": 1 };
+        sortOptions = { price: 1 };
         break;
       case "price-high":
-        sortOptions = { "packages.price": -1 };
+        sortOptions = { price: -1 };
         break;
       default:
         sortOptions = { "rating.average": -1 };
@@ -146,10 +161,7 @@ export const searchMeals = async (req, res) => {
     // Apply price range filter after population
     if (priceRange) {
       const [min, max] = priceRange.split("-").map(Number);
-      meals = meals.filter((meal) => {
-        const mealPriceRange = meal.priceRange;
-        return mealPriceRange.min <= max && mealPriceRange.max >= min;
-      });
+      meals = meals.filter((meal) => meal.price >= min && meal.price <= max);
     }
 
     res.json({
@@ -272,10 +284,10 @@ export const getAllMeals = async (req, res) => {
         sortOptions = { createdAt: -1 };
         break;
       case "price-low":
-        sortOptions = { "packages.price": 1 };
+        sortOptions = { price: 1 };
         break;
       case "price-high":
-        sortOptions = { "packages.price": -1 };
+        sortOptions = { price: -1 };
         break;
       default:
         sortOptions = { createdAt: -1 };

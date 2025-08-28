@@ -36,12 +36,10 @@ export const withdrawEarnings = async (req, res) => {
     });
 
     if (!orders.length) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "No eligible earnings to withdraw yet.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "No eligible earnings to withdraw yet.",
+      });
     }
 
     // Calculate total withdrawable amount
@@ -234,7 +232,7 @@ export const createMeal = async (req, res) => {
       description,
       category,
       mealGroup,
-      packages,
+      price,
       ingredients,
       allergens,
       dietaryInfo,
@@ -258,7 +256,7 @@ export const createMeal = async (req, res) => {
       vendor: vendor._id,
       category,
       mealGroup,
-      packages,
+      price,
       ingredients,
       allergens,
       dietaryInfo,
@@ -273,15 +271,11 @@ export const createMeal = async (req, res) => {
     vendor.metrics.activeMeals += 1;
 
     // Update price range
-    const prices = packages.map((pkg) => pkg.price);
-    const minPrice = Math.min(...prices);
-    const maxPrice = Math.max(...prices);
-
-    if (vendor.priceRange.min === 0 || minPrice < vendor.priceRange.min) {
-      vendor.priceRange.min = minPrice;
+    if (vendor.priceRange.min === 0 || price < vendor.priceRange.min) {
+      vendor.priceRange.min = price;
     }
-    if (maxPrice > vendor.priceRange.max) {
-      vendor.priceRange.max = maxPrice;
+    if (price > vendor.priceRange.max) {
+      vendor.priceRange.max = price;
     }
 
     await vendor.save();

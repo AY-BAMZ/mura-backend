@@ -19,14 +19,6 @@ const mealGroupSchema = new mongoose.Schema(
   }
 );
 
-// Variant schema for meal variants (e.g., size, flavor)
-const variantSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  price: { type: Number, required: true, min: 0 },
-  description: String,
-  images: [String],
-});
-
 // Review schema for meal reviews
 const mealReviewSchema = new mongoose.Schema({
   order: { type: mongoose.Schema.Types.ObjectId, ref: "Order", required: true },
@@ -75,7 +67,11 @@ const mealSchema = new mongoose.Schema(
       main: String,
       gallery: [String],
     },
-    variants: [variantSchema],
+    price: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
     prepTime: {
       type: Number,
       required: true,
@@ -138,14 +134,9 @@ mealSchema.index({ name: "text", description: "text", ingredients: "text" });
 mealSchema.index({ vendor: 1, status: 1 });
 mealSchema.index({ category: 1, status: 1 });
 
-// Virtual for price range
+// Virtual for price range (single price)
 mealSchema.virtual("priceRange").get(function () {
-  if (!this.variants || this.variants.length === 0) return { min: 0, max: 0 };
-  const prices = this.variants.map((v) => v.price);
-  return {
-    min: Math.min(...prices),
-    max: Math.max(...prices),
-  };
+  return { min: this.price, max: this.price };
 });
 
 const MealGroup = mongoose.model("MealGroup", mealGroupSchema);

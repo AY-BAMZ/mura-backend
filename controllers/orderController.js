@@ -64,14 +64,6 @@ export const createOrder = async (req, res) => {
         });
       }
 
-      const selectedPackage = meal.packages.id(item.package);
-      if (!selectedPackage) {
-        return res.status(404).json({
-          success: false,
-          message: "Package not found",
-        });
-      }
-
       // All items must be from the same vendor
       if (!vendor) {
         vendor = meal.vendor;
@@ -82,19 +74,13 @@ export const createOrder = async (req, res) => {
         });
       }
 
-      const itemTotal = selectedPackage.price * item.quantity;
+      const itemTotal = meal.price * item.quantity;
       subtotal += itemTotal;
 
       orderItems.push({
         meal: meal._id,
-        package: {
-          _id: selectedPackage._id,
-          title: selectedPackage.title,
-          price: selectedPackage.price,
-          description: selectedPackage.description,
-        },
         quantity: item.quantity,
-        unitPrice: selectedPackage.price,
+        unitPrice: meal.price,
         totalPrice: itemTotal,
       });
     }
@@ -175,7 +161,7 @@ export const createOrder = async (req, res) => {
 
     // Clear cart items that were ordered
     items.forEach((item) => {
-      customer.cart.pull({ meal: item.meal, package: item.package });
+      customer.cart.pull({ meal: item.meal });
     });
     await customer.save();
 
@@ -197,14 +183,21 @@ export const createOrder = async (req, res) => {
 
     // Send notifications
     try {
+      // Fetch all meal names for order items
+      const mealIds = orderItems.map((item) => item.meal);
+      const mealsMap = {};
+      const meals = await Meal.find({ _id: { $in: mealIds } });
+      meals.forEach((m) => {
+        mealsMap[m._id.toString()] = m.name;
+      });
+
       // Email to customer
       const orderData = {
         orderNumber: order.orderNumber,
         deliveryDate: new Date(deliveryDate).toLocaleDateString(),
         vendorName: vendor.businessName,
         items: orderItems.map((item) => ({
-          name: item.package.title,
-          package: item.package.title,
+          name: mealsMap[item.meal.toString()] || "Meal",
           quantity: item.quantity,
           price: item.unitPrice,
           total: item.totalPrice,
