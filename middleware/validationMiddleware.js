@@ -98,14 +98,7 @@ export const validateMealCreation = [
     .isIn(["set_meal", "meal_prep"])
     .withMessage("Category must be either set_meal or meal_prep"),
 
-  body("packages")
-    .isArray({ min: 1 })
-    .withMessage("At least one package is required"),
-
-  body("packages.*.title")
-    .trim()
-    .notEmpty()
-    .withMessage("Package title is required"),
+  Message("Package title is required"),
 
   body("packages.*.price")
     .isFloat({ min: 0.01 })
