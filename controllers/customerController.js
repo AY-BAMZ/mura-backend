@@ -855,6 +855,46 @@ export const toggleFavoriteMeal = async (req, res) => {
   }
 };
 
+export const removeMealFavorite = async (req, res) => {
+  try {
+    const customer = await Customer.findOne({ user: req.user.id });
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer profile not found",
+      });
+    }
+
+    const mealId = req.params.id;
+    const isAlreadyFavorite = customer.favorites.meals.includes(mealId);
+
+    if (isAlreadyFavorite) {
+      customer.favorites.meals.pull(mealId);
+
+      // Update meal metrics
+      await Meal.findByIdAndUpdate(mealId, {
+        $inc: { "metrics.favorites": -1 },
+      });
+    }
+
+    await customer.save();
+
+    res.json({
+      success: true,
+      message: isAlreadyFavorite
+        ? "Meal removed from favorites"
+        : "Meal added to favorites",
+      data: { isFavorite: !isAlreadyFavorite },
+    });
+  } catch (error) {
+    logger.error("Toggle favorite meal error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
 // @desc    Get favorites
 // @route   GET /api/customer/favorites
 // @access  Private (Customer)

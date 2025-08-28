@@ -25,6 +25,7 @@ import {
   getSubscriptions,
   updateSubscription,
   cancelSubscription,
+  removeMealFavorite,
 } from "../controllers/customerController.js";
 import {
   protect,
@@ -70,6 +71,7 @@ router.delete("/cart/:id", removeFromCart);
 // Favorites
 router.post("/favorites/vendors/:id", toggleFavoriteVendor);
 router.post("/favorites/meals/:id", toggleFavoriteMeal);
+router.delete("/favorites/meals/:id", removeMealFavorite);
 router.get("/favorites", getFavorites);
 
 // Subscription routes
