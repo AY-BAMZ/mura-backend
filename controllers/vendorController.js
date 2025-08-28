@@ -109,6 +109,7 @@ export const updateVendorProfile = async (req, res) => {
       businessHours,
       deliveryInfo,
       location,
+      images,
     } = req.body;
 
     const vendor = await Vendor.findOne({ user: req.user.id });
@@ -126,6 +127,11 @@ export const updateVendorProfile = async (req, res) => {
       cuisine: cuisine || vendor.cuisine,
       businessHours: businessHours || vendor.businessHours,
       deliveryInfo: deliveryInfo || vendor.deliveryInfo,
+      images: {
+        logo: images.logo || vendor.images.logo,
+        banner: images.banner || vendor.images.banner,
+        gallery: [...(images.gallery || []), ...vendor.images.gallery],
+      },
     });
 
     Object.assign(vendor, updateData);
