@@ -374,6 +374,7 @@ export const getMealsByVendorAndCategory = async (req, res) => {
       category,
       status: "active",
     });
+    const vendor = await Vendor.findById(vendorId);
     const meals = await Meal.find({
       vendor: vendorId,
       category,
@@ -387,6 +388,7 @@ export const getMealsByVendorAndCategory = async (req, res) => {
       success: true,
       data: {
         meals,
+        vendor,
         pagination: {
           page: parseInt(page),
           limit: limitNum,
