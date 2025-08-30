@@ -148,6 +148,48 @@ export const addAddress = async (req, res) => {
   }
 };
 
+export const setCurrentAddress = async (req, res) => {
+  try {
+    const { addressId } = req.body;
+
+    const customer = await Customer.findOne({ user: req.user.id });
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer profile not found",
+      });
+    }
+
+    const address = customer.addresses.id(addressId);
+    if (!address) {
+      return res.status(404).json({
+        success: false,
+        message: "Address not found",
+      });
+    }
+    // Unset previous default address if any
+    customer.addresses.forEach((addr) => {
+      if (addr.isDefault) addr.isDefault = false;
+    });
+
+    address.isDefault = true;
+
+    await customer.save();
+
+    res.json({
+      success: true,
+      message: "Current address set successfully",
+      data: { currentAddress: address },
+    });
+  } catch (error) {
+    logger.error("Set current address error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
 // @desc    Update address
 // @route   PUT /api/customer/addresses/:id
 // @access  Private (Customer)
