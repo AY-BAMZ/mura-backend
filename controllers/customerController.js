@@ -1154,9 +1154,11 @@ export const getAddresses = async (req, res) => {
       });
     }
 
+    const defaultAddress = customer.addresses.find((addr) => addr.isDefault);
+
     res.json({
       success: true,
-      data: { addresses: customer.addresses },
+      data: { addresses: customer.addresses, defaultAddress },
     });
   } catch (error) {
     logger.error("Get addresses error", { error: error.message });
