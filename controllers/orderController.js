@@ -7,6 +7,7 @@ import { calculateOrderTotal } from "../utils/helpers.js";
 import { sendOrderNotificationEmail } from "../utils/email.js";
 import stripe from "../config/stripe.js";
 import logger from "../config/logger.js";
+import { getDistanceFromLatLonInKm } from "./customerController.js";
 
 // @desc    Create order from cart
 // @route   POST /api/orders/create
