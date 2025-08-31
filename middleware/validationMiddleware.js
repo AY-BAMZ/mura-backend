@@ -152,14 +152,6 @@ export const validateOrderCreation = [
     .isInt({ min: 1 })
     .withMessage("Quantity must be at least 1"),
 
-  body("deliveryAddress")
-    .notEmpty()
-    .withMessage("Delivery address is required"),
-
-  body("deliveryDate")
-    .isISO8601()
-    .withMessage("Valid delivery date is required"),
-
   handleValidationErrors,
 ];
 
