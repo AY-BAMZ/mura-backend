@@ -150,7 +150,7 @@ export const addAddress = async (req, res) => {
 
 export const setCurrentAddress = async (req, res) => {
   try {
-    const { addressId } = req.body;
+    const { id } = req.params;
 
     const customer = await Customer.findOne({ user: req.user.id });
     if (!customer) {
@@ -160,7 +160,7 @@ export const setCurrentAddress = async (req, res) => {
       });
     }
 
-    const address = customer.addresses.id(addressId);
+    const address = customer.addresses.id(id);
     if (!address) {
       return res.status(404).json({
         success: false,
