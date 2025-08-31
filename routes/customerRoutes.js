@@ -28,6 +28,8 @@ import {
   removeMealFavorite,
   setCurrentAddress,
   getCheckout,
+  addCard,
+  getPaymentMethods,
 } from "../controllers/customerController.js";
 import {
   protect,
@@ -87,5 +89,9 @@ router.delete("/subscriptions/:subscriptionId", cancelSubscription);
 router.get("/orders", getCustomerOrders);
 router.get("/orders/:orderId", getOrderById);
 router.get("/order/checkout/:vendorId", getCheckout);
+
+// card routes
+router.post("/payment-methods/add", addCard);
+router.get("/payment-methods", getPaymentMethods);
 
 export default router;

@@ -1420,3 +1420,90 @@ export const getCheckout = async (req, res) => {
     });
   }
 };
+
+// @desc    Add card details for customer to Stripe
+// @route   POST /api/customer/payment-methods/add
+// @access  Private (Customer)
+export const addCard = async (req, res) => {
+  try {
+    const { number, exp_month, exp_year, cvc } = req.body;
+    const customer = await Customer.findOne({ user: req.user.id });
+    if (!customer) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Customer profile not found" });
+    }
+    // Ensure Stripe customer exists
+    let stripeCustomerId = customer.stripeCustomerId;
+    if (!stripeCustomerId) {
+      const stripeCustomer = await stripe.customers.create({
+        email: req.user.email,
+        name: `${req.user.firstName} ${req.user.lastName}`,
+      });
+      stripeCustomerId = stripeCustomer.id;
+      customer.stripeCustomerId = stripeCustomerId;
+      await customer.save();
+    }
+    // Create payment method
+    const paymentMethod = await stripe.paymentMethods.create({
+      type: "card",
+      card: { number, exp_month, exp_year, cvc },
+    });
+    // Attach to customer
+    await stripe.paymentMethods.attach(paymentMethod.id, {
+      customer: stripeCustomerId,
+    });
+    // Optionally set as default
+    await stripe.customers.update(stripeCustomerId, {
+      invoice_settings: { default_payment_method: paymentMethod.id },
+    });
+    res.status(201).json({
+      success: true,
+      message: "Card added successfully",
+      data: {
+        paymentMethodId: paymentMethod.id,
+        brand: paymentMethod.card.brand,
+        last4: paymentMethod.card.last4,
+      },
+    });
+  } catch (error) {
+    logger.error("Add card error", { error: error.message });
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// @desc    Get all payment cards for a customer
+// @route   GET /api/customer/payment-methods
+// @access  Private (Customer)
+export const getPaymentMethods = async (req, res) => {
+  try {
+    const customer = await Customer.findOne({ user: req.user.id });
+    if (!customer || !customer.stripeCustomerId) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer or Stripe customer not found",
+      });
+    }
+    const paymentMethods = await stripe.paymentMethods.list({
+      customer: customer.stripeCustomerId,
+      type: "card",
+    });
+    res.json({
+      success: true,
+      data: paymentMethods.data.map((pm) => ({
+        id: pm.id,
+        brand: pm.card.brand,
+        last4: pm.card.last4,
+        exp_month: pm.card.exp_month,
+        exp_year: pm.card.exp_year,
+        isDefault:
+          customer.stripeCustomerId &&
+          customer.stripeCustomerId.invoice_settings?.default_payment_method ===
+            pm.id,
+      })),
+    });
+  } catch (error) {
+    logger.error("Get payment methods error", { error: error.message });
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};

@@ -75,6 +75,10 @@ const customerSchema = new mongoose.Schema(
         },
       ],
     },
+    stripeCustomerId: {
+      type: String,
+      default: null,
+    },
     subscriptions: [
       {
         meal: {

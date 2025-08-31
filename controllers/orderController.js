@@ -11,78 +11,93 @@ import logger from "../config/logger.js";
 // @desc    Create order from cart
 // @route   POST /api/orders/create
 // @access  Private (Customer)
+// Refactored: create order using vendorId, fetch cart items for that vendor, use getCheckout logic
 export const createOrder = async (req, res) => {
   try {
     const {
-      items,
+      vendorId,
       deliveryAddress,
       deliveryDate,
       paymentMethodId,
       specialInstructions,
       type = "one_time",
     } = req.body;
+    const userId = req.user.id;
 
-    const customer = await Customer.findOne({ user: req.user.id });
+    // Fetch customer and cart
+    const customer = await Customer.findOne({ user: userId }).populate({
+      path: "cart.meal",
+      select: "name price images vendor",
+    });
     if (!customer) {
-      return res.status(404).json({
-        success: false,
-        message: "Customer profile not found",
-      });
+      return res
+        .status(404)
+        .json({ success: false, message: "Customer profile not found" });
     }
 
-    // Validate items and get vendor
-    let vendor = null;
-    const orderItems = [];
-    let subtotal = 0;
-
-    for (const item of items) {
-      const meal = await Meal.findById(item.meal).populate("vendor");
-      if (!meal) {
-        return res.status(404).json({
-          success: false,
-          message: `Meal not found: ${item.meal}`,
-        });
-      }
-
-      // All items must be from the same vendor
-      if (!vendor) {
-        vendor = meal.vendor;
-      } else if (vendor._id.toString() !== meal.vendor._id.toString()) {
-        return res.status(400).json({
-          success: false,
-          message: "All items must be from the same vendor",
-        });
-      }
-
-      const itemTotal = meal.price * item.quantity;
-      subtotal += itemTotal;
-
-      orderItems.push({
-        meal: meal._id,
-        quantity: item.quantity,
-        unitPrice: meal.price,
-        totalPrice: itemTotal,
-      });
-    }
-
-    // Calculate pricing
-    const deliveryFee = vendor.deliveryInfo.deliveryFee || 0;
-    const freeDeliveryThreshold =
-      vendor.deliveryInfo.freeDeliveryThreshold || 0;
-    const finalDeliveryFee =
-      subtotal >= freeDeliveryThreshold ? 0 : deliveryFee;
-
-    const pricing = calculateOrderTotal(
-      orderItems.map((item) => ({
-        price: item.unitPrice,
-        quantity: item.quantity,
-      })),
-      finalDeliveryFee
+    // Filter cart items for this vendor
+    const cartItems = customer.cart.filter(
+      (item) => item.meal && item.meal.vendor?.toString() === vendorId
     );
+    if (cartItems.length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "No items from this vendor in cart" });
+    }
+
+    // Calculate item amount
+    const itemAmount = cartItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+    const serviceCharge = 1;
+    const vat = 1;
+
+    // Get default address if not provided
+    let address = deliveryAddress;
+    if (!address) {
+      address =
+        customer.addresses.find((addr) => addr.isDefault) ||
+        customer.addresses[0];
+      if (!address) {
+        return res
+          .status(400)
+          .json({ success: false, message: "No delivery address found" });
+      }
+    }
+
+    // Calculate delivery fee
+    const vendor = await Vendor.findById(vendorId);
+    if (!vendor) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Vendor not found" });
+    }
+    const [customerLng, customerLat] = address.coordinates;
+    const [vendorLng, vendorLat] = vendor.location?.coordinates || [0, 0];
+    const distance = getDistanceFromLatLonInKm(
+      customerLat,
+      customerLng,
+      vendorLat,
+      vendorLng
+    );
+    let deliveryFee = 5 + Math.ceil(distance) * 2;
+    if (deliveryFee < 5) deliveryFee = 5;
+
+    // Total amount
+    const totalAmount = itemAmount + serviceCharge + vat + deliveryFee;
+
+    // Prepare order items
+    const orderItems = cartItems.map((item) => ({
+      meal: item.meal._id,
+      quantity: item.quantity,
+      unitPrice: item.price,
+      totalPrice: item.price * item.quantity,
+    }));
 
     // Create Stripe Payment Intent
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(pricing.total * 100), // Convert to cents
+      amount: Math.round(totalAmount * 100), // Convert to cents
       currency: "usd",
       payment_method: paymentMethodId,
       confirmation_method: "manual",
@@ -101,12 +116,19 @@ export const createOrder = async (req, res) => {
       vendor: vendor._id,
       items: orderItems,
       type,
-      pricing,
-      deliveryAddress,
+      pricing: {
+        itemAmount,
+        serviceCharge,
+        vat,
+        deliveryFee,
+        total: totalAmount,
+      },
+      deliveryAddress: address,
       deliveryInfo: {
         scheduledDate: new Date(deliveryDate),
         estimatedTime: new Date(
-          Date.now() + vendor.deliveryInfo.estimatedDeliveryTime * 60000
+          Date.now() +
+            (vendor.deliveryInfo?.estimatedDeliveryTime || 30) * 60000
         ),
       },
       paymentInfo: {
@@ -136,23 +158,26 @@ export const createOrder = async (req, res) => {
     } else {
       order.paymentStatus = "processing";
     }
-
     await order.save();
 
     // Clear cart items that were ordered
-    items.forEach((item) => {
-      customer.cart.pull({ meal: item.meal });
+    cartItems.forEach((item) => {
+      customer.cart.pull(item._id);
     });
     await customer.save();
 
     // Update customer order history
-    customer.orderHistory.totalOrders += 1;
-    customer.orderHistory.totalSpent += pricing.total;
-    await customer.save();
+    if (customer.orderHistory) {
+      customer.orderHistory.totalOrders += 1;
+      customer.orderHistory.totalSpent += totalAmount;
+      await customer.save();
+    }
 
     // Update vendor metrics
-    vendor.metrics.totalOrders += 1;
-    await vendor.save();
+    if (vendor.metrics) {
+      vendor.metrics.totalOrders += 1;
+      await vendor.save();
+    }
 
     // Update meal metrics
     for (const item of orderItems) {
@@ -161,17 +186,14 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    // Send notifications
+    // Send notifications (same as before)
     try {
-      // Fetch all meal names for order items
       const mealIds = orderItems.map((item) => item.meal);
       const mealsMap = {};
       const meals = await Meal.find({ _id: { $in: mealIds } });
       meals.forEach((m) => {
         mealsMap[m._id.toString()] = m.name;
       });
-
-      // Email to customer
       const orderData = {
         orderNumber: order.orderNumber,
         deliveryDate: new Date(deliveryDate).toLocaleDateString(),
@@ -182,12 +204,9 @@ export const createOrder = async (req, res) => {
           price: item.unitPrice,
           total: item.totalPrice,
         })),
-        total: pricing.total,
+        total: totalAmount,
       };
-
       await sendOrderNotificationEmail(req.user.email, orderData);
-
-      // In-app notification to vendor
       await Notification.create({
         recipient: vendor.user,
         type: "order_status",
@@ -205,7 +224,7 @@ export const createOrder = async (req, res) => {
     req.io.to(`vendor_${vendor._id}`).emit("newOrder", {
       orderId: order._id,
       orderNumber: order.orderNumber,
-      total: pricing.total,
+      total: totalAmount,
       customer: {
         name: `${req.user.firstName} ${req.user.lastName}`,
       },
@@ -229,19 +248,14 @@ export const createOrder = async (req, res) => {
     });
   } catch (error) {
     logger.error("Create order error", { error: error.message });
-
-    // Handle Stripe errors
     if (error.type === "StripeCardError") {
-      return res.status(400).json({
-        success: false,
-        message: "Payment failed: " + error.message,
-      });
+      return res
+        .status(400)
+        .json({ success: false, message: "Payment failed: " + error.message });
     }
-
-    res.status(500).json({
-      success: false,
-      message: "Server error during order creation",
-    });
+    res
+      .status(500)
+      .json({ success: false, message: "Server error during order creation" });
   }
 };
 
