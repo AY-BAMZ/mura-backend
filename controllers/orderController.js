@@ -112,8 +112,14 @@ export const createOrder = async (req, res) => {
       },
     });
 
+    // Generate unique order reference (e.g., ORD-YYYYMMDD-XXXX)
+    const today = new Date();
+    const datePart = today.toISOString().slice(0, 10).replace(/-/g, "");
+    const randomPart = Math.floor(1000 + Math.random() * 9000);
+    const orderReference = `ORD-${datePart}-${randomPart}`;
     // Create order
     const order = await Order.create({
+      orderNumber: orderReference,
       customer: customer._id,
       vendor: vendor._id,
       items: orderItems,
