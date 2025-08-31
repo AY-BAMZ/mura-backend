@@ -1243,3 +1243,180 @@ export const getOrderById = async (req, res) => {
     });
   }
 };
+
+// Helper to calculate distance between two coordinates (Haversine formula)
+function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Radius of the earth in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c; // Distance in km
+  return d;
+}
+
+export const getDeliveryFee = async (req, res) => {
+  try {
+    const { addressId, userId, vendorId } = req.params;
+
+    const customer = await Customer.findOne({ user: userId });
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer profile not found",
+      });
+    }
+
+    const address = customer.addresses.id(addressId);
+    if (!address) {
+      return res.status(404).json({
+        success: false,
+        message: "Address not found",
+      });
+    }
+
+    const vendor = await Vendor.findById(vendorId);
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor not found",
+      });
+    }
+
+    // Get coordinates
+    const [customerLng, customerLat] = address.coordinates;
+    const [vendorLng, vendorLat] = vendor.location?.coordinates || [0, 0];
+
+    // Calculate distance
+    const distance = getDistanceFromLatLonInKm(
+      customerLat,
+      customerLng,
+      vendorLat,
+      vendorLng
+    );
+
+    // Delivery fee: 5 pounds minimum, +2 pounds per km
+    let deliveryFee = 5 + Math.ceil(distance) * 2;
+    if (deliveryFee < 5) deliveryFee = 5;
+
+    res.json({
+      success: true,
+      data: { deliveryFee, distance: Number(distance.toFixed(2)) },
+    });
+  } catch (error) {
+    logger.error("Get delivery fee error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+// @desc    Get checkout details for a vendor
+// @route   GET /api/customer/checkout/:vendorId
+// @access  Private (Customer)
+export const getCheckout = async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    const userId = req.user.id;
+
+    const customer = await Customer.findOne({ user: userId }).populate({
+      path: "cart.meal",
+      select: "name price images vendor",
+    });
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer profile not found",
+      });
+    }
+
+    // Filter cart items for this vendor
+    const cartItems = customer.cart.filter(
+      (item) => item.meal && item.meal.vendor?.toString() === vendorId
+    );
+    if (cartItems.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No items from this vendor in cart",
+      });
+    }
+
+    // Calculate item amount
+    const itemAmount = cartItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+
+    // Service charge and VAT
+    const serviceCharge = 1;
+    const vat = 1;
+
+    // Get default address
+    const address =
+      customer.addresses.find((addr) => addr.isDefault) ||
+      customer.addresses[0];
+    if (!address) {
+      return res.status(400).json({
+        success: false,
+        message: "No delivery address found",
+      });
+    }
+
+    // Calculate delivery fee
+    const vendor = await Vendor.findById(vendorId);
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor not found",
+      });
+    }
+    const [customerLng, customerLat] = address.coordinates;
+    const [vendorLng, vendorLat] = vendor.location?.coordinates || [0, 0];
+    const distance = getDistanceFromLatLonInKm(
+      customerLat,
+      customerLng,
+      vendorLat,
+      vendorLng
+    );
+    let deliveryFee = 5 + Math.ceil(distance) * 2;
+    if (deliveryFee < 5) deliveryFee = 5;
+
+    // Total amount
+    const totalAmount = itemAmount + serviceCharge + vat + deliveryFee;
+
+    res.json({
+      success: true,
+      data: {
+        items: cartItems.map((item) => ({
+          id: item._id,
+          meal: item.meal,
+          quantity: item.quantity,
+          price: item.price,
+          deliveryDate: item.deliveryDate,
+        })),
+        itemAmount,
+        serviceCharge,
+        vat,
+        deliveryFee,
+        totalAmount,
+        distance: Number(distance.toFixed(2)),
+        address,
+        vendor: {
+          id: vendor._id,
+          businessName: vendor.businessName,
+        },
+      },
+    });
+  } catch (error) {
+    logger.error("Get checkout error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};

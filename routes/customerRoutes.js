@@ -27,6 +27,7 @@ import {
   cancelSubscription,
   removeMealFavorite,
   setCurrentAddress,
+  getCheckout,
 } from "../controllers/customerController.js";
 import {
   protect,
@@ -85,5 +86,6 @@ router.delete("/subscriptions/:subscriptionId", cancelSubscription);
 // Orders
 router.get("/orders", getCustomerOrders);
 router.get("/orders/:orderId", getOrderById);
+router.get("/order/checkout/:vendorId", getCheckout);
 
 export default router;
