@@ -78,7 +78,7 @@ const orderSchema = new mongoose.Schema(
     pricing: {
       subtotal: {
         type: Number,
-        required: true,
+        required: false,
       },
       deliveryFee: {
         type: Number,

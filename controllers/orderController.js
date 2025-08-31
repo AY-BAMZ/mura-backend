@@ -124,6 +124,7 @@ export const createOrder = async (req, res) => {
         vat,
         deliveryFee,
         total: totalAmount,
+        subtotal: totalAmount,
       },
       deliveryAddress: address,
       deliveryInfo: {
