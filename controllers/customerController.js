@@ -945,14 +945,11 @@ export const getFavorites = async (req, res) => {
     const customer = await Customer.findOne({ user: req.user.id })
       .populate({
         path: "favorites.vendors",
-        select: "businessName rating priceRange images",
       })
       .populate({
         path: "favorites.meals",
-        select: "name images rating vendor",
         populate: {
           path: "vendor",
-          select: "businessName",
         },
       });
 
