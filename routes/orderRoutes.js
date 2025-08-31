@@ -32,7 +32,7 @@ router.post(
   "/create",
   authorize("customer"),
   requireVerified,
-  validateOrderCreation,
+  // validateOrderCreation,
   createOrder
 );
 router.post(
