@@ -101,6 +101,7 @@ export const createOrder = async (req, res) => {
       amount: Math.round(totalAmount * 100), // Convert to cents
       currency: "usd",
       payment_method: paymentMethodId,
+      customer: customer.stripeCustomerId, // Fix: include Stripe customer
       confirmation_method: "manual",
       confirm: true,
       return_url: `${process.env.FRONTEND_URL}/orders`,
