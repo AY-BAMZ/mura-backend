@@ -87,6 +87,7 @@ export const getVendorProfile = async (req, res) => {
     res.json({
       success: true,
       data: { vendor },
+      message: "Vendor profile fetched successfully",
     });
   } catch (error) {
     logger.error("Get vendor profile error", { error: error.message });
