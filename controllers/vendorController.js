@@ -341,7 +341,14 @@ export const getVendorMealTypes = async (req, res) => {
 
 export const getVendorMeals = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, category, search } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      category,
+      search,
+      mealType,
+    } = req.query;
     const { skip, limit: limitNum } = getPagination(page, limit);
 
     const vendor = await Vendor.findOne({ user: req.user.id });
@@ -356,6 +363,9 @@ export const getVendorMeals = async (req, res) => {
     const query = { vendor: vendor._id };
     if (status && ["active", "inactive", "out_of_stock"].includes(status)) {
       query.status = status;
+    }
+    if (mealType) {
+      query.mealType = mealType;
     }
     if (category === "set_meal") {
       query.category = "set_meal";
