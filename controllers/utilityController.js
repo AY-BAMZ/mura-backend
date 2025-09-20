@@ -2,31 +2,20 @@ import { upload, deleteImage } from "../utils/fileUpload.js";
 import { v2 as cloudinary } from "cloudinary";
 import logger from "../config/logger.js";
 
-// Upload to cloudinary helper
-const uploadToCloudinary = (buffer, options = {}) => {
-  return new Promise((resolve, reject) => {
-    const uploadOptions = {
-      folder: "mura-food",
-      allowed_formats: ["jpg", "jpeg", "png", "webp"],
-      transformation: [
-        { width: 1200, height: 1200, crop: "limit", quality: "auto:good" },
-      ],
-      public_id:
-        options.public_id ||
-        `upload-${Date.now()}-${Math.round(Math.random() * 1e9)}`,
-      ...options,
-    };
-
-    cloudinary.uploader
-      .upload_stream(uploadOptions, (error, result) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(result);
-        }
-      })
-      .end(buffer);
-  });
+// Upload to cloudinary helper (using file path)
+const uploadToCloudinary = async (filePath, options = {}) => {
+  const uploadOptions = {
+    folder: "mura-food",
+    allowed_formats: ["jpg", "jpeg", "png", "webp"],
+    transformation: [
+      { width: 1200, height: 1200, crop: "limit", quality: "auto:good" },
+    ],
+    public_id:
+      options.public_id ||
+      `upload-${Date.now()}-${Math.round(Math.random() * 1e9)}`,
+    ...options,
+  };
+  return await cloudinary.uploader.upload(filePath, uploadOptions);
 };
 
 // @desc    Upload single image
@@ -51,7 +40,7 @@ export const uploadSingleImage = async (req, res) => {
       }
 
       try {
-        const result = await uploadToCloudinary(req.file.buffer);
+        const result = await uploadToCloudinary(req.file.path);
 
         res.json({
           success: true,
@@ -71,6 +60,7 @@ export const uploadSingleImage = async (req, res) => {
     });
   } catch (error) {
     logger.error("Upload single image error", { error: error.message });
+
     res.status(500).json({
       success: false,
       message: "Server error during image upload",
@@ -101,7 +91,7 @@ export const uploadMultipleImages = async (req, res) => {
 
       try {
         const uploadPromises = req.files.map((file) =>
-          uploadToCloudinary(file.buffer)
+          uploadToCloudinary(file.path)
         );
         const results = await Promise.all(uploadPromises);
 
