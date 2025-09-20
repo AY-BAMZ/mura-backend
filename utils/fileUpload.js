@@ -1,5 +1,6 @@
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
+import logger from "../config/logger";
 
 // Memory storage for processing before cloudinary upload
 const storage = multer.memoryStorage();
@@ -69,8 +70,10 @@ const uploadToCloudinary = async (request) => {
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
   });
+  logger.error("request", { request });
   console.log("request", request);
   const result = await cloudinary.uploader.upload(request);
+  logger.error("result", { result });
   console.log("result", result);
   return result;
 };
