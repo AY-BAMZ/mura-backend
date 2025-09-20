@@ -314,6 +314,31 @@ export const createMeal = async (req, res) => {
 // @desc    Get vendor meals
 // @route   GET /api/vendor/meals
 // @access  Private (Vendor)
+export const getVendorMealTypes = async (req, res) => {
+  try {
+    const vendor = await Vendor.findOne({ user: req.user.id });
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor profile not found",
+      });
+    }
+
+    const mealTypes = await Meal.distinct("mealType", { vendor: vendor._id });
+
+    res.json({
+      success: true,
+      data: { mealTypes },
+    });
+  } catch (error) {
+    logger.error("Get vendor meal types error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
 export const getVendorMeals = async (req, res) => {
   try {
     const { page = 1, limit = 10, status, category, search } = req.query;

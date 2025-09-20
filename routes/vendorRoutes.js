@@ -14,6 +14,7 @@ import {
   getVendorEarnings,
   updateBankDetails,
   withdrawEarnings,
+  getVendorMealTypes,
 } from "../controllers/vendorController.js";
 import {
   protect,
@@ -42,6 +43,7 @@ router.post("/meals", validateMealCreation, createMeal);
 router.get("/meals", getVendorMeals);
 router.put("/meals/:id", updateMeal);
 router.delete("/meals/:id", deleteMeal);
+router.get("/meals/types", getVendorMealTypes);
 
 // Order routes
 router.get("/orders", getVendorOrders);
