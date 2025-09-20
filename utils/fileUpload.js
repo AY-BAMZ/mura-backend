@@ -69,8 +69,9 @@ const uploadToCloudinary = async (request) => {
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
   });
-
+  console.log("request", request);
   const result = await cloudinary.uploader.upload(request);
+  console.log("result", result);
   return result;
 };
 
