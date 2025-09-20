@@ -625,7 +625,13 @@ export const getVendorAnalytics = async (req, res) => {
     const startDate = new Date();
 
     switch (period) {
-      case "7d":
+      case "1d":
+        startDate.setDate(endDate.getDate() - 1);
+        break;
+      case "3d":
+        startDate.setDate(endDate.getDate() - 3);
+        break;
+      case "30d":
         startDate.setDate(endDate.getDate() - 7);
         break;
       case "30d":
