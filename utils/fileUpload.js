@@ -1,15 +1,8 @@
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 
-// Disk storage for saving files before cloudinary upload
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/");
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  },
-});
+// Memory storage for processing before cloudinary upload
+const storage = multer.memoryStorage();
 
 export const upload = multer({
   storage,
