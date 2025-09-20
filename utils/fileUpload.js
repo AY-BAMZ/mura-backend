@@ -1,63 +1,81 @@
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 
-// Memory storage for processing before cloudinary upload
-const storage = multer.memoryStorage();
-
-// File filter
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = process.env.ALLOWED_IMAGE_TYPES?.split(",") || [
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-  ];
-
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(
-      new Error(
-        "Invalid file type. Only JPEG, PNG and WebP images are allowed."
-      ),
-      false
-    );
-  }
-};
-
-// Create multer upload middleware
-export const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: parseInt(process.env.MAX_FILE_SIZE) || 5 * 1024 * 1024, // 5MB default
+// Disk storage for saving files before cloudinary upload
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/");
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${Date.now()}-${file.originalname}`);
   },
 });
 
-// Upload to cloudinary helper
-const uploadToCloudinary = (buffer, options = {}) => {
-  return new Promise((resolve, reject) => {
-    const uploadOptions = {
-      folder: "mura-food",
-      allowed_formats: ["jpg", "jpeg", "png", "webp"],
-      transformation: [
-        { width: 1200, height: 1200, crop: "limit", quality: "auto:good" },
-      ],
-      public_id:
-        options.public_id ||
-        `upload-${Date.now()}-${Math.round(Math.random() * 1e9)}`,
-      ...options,
-    };
+const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB limit
 
-    cloudinary.uploader
-      .upload_stream(uploadOptions, (error, result) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(result);
-        }
-      })
-      .end(buffer);
+// File filter
+// const fileFilter = (req, file, cb) => {
+//   const allowedTypes = process.env.ALLOWED_IMAGE_TYPES?.split(",") || [
+//     "image/jpeg",
+//     "image/png",
+//     "image/webp",
+//   ];
+
+//   if (allowedTypes.includes(file.mimetype)) {
+//     cb(null, true);
+//   } else {
+//     cb(
+//       new Error(
+//         "Invalid file type. Only JPEG, PNG and WebP images are allowed."
+//       ),
+//       false
+//     );
+//   }
+// };
+
+// Create multer upload middleware
+// export const upload = multer({
+//   storage: storage,
+//   fileFilter: fileFilter,
+//   limits: {
+//     fileSize: parseInt(process.env.MAX_FILE_SIZE) || 5 * 1024 * 1024, // 5MB default
+//   },
+// });
+
+// Upload to cloudinary helper
+const uploadToCloudinary = async (request) => {
+  // return new Promise((resolve, reject) => {
+  //   const uploadOptions = {
+  //     folder: "mura-food",
+  //     allowed_formats: ["jpg", "jpeg", "png", "webp"],
+  //     transformation: [
+  //       { width: 1200, height: 1200, crop: "limit", quality: "auto:good" },
+  //     ],
+  //     public_id:
+  //       options.public_id ||
+  //       `upload-${Date.now()}-${Math.round(Math.random() * 1e9)}`,
+  //     ...options,
+  //   };
+
+  //   cloudinary.uploader
+  //     .upload_stream(uploadOptions, (error, result) => {
+  //       if (error) {
+  //         reject(error);
+  //       } else {
+  //         resolve(result);
+  //       }
+  //     })
+  //     .end(buffer);
+
+  // });
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
   });
+
+  const result = await cloudinary.uploader.upload(request);
+  return result;
 };
 
 // Upload single image
@@ -67,7 +85,7 @@ export const uploadSingle = (fieldName) => {
       if (err) {
         return next(err);
       }
-
+      console.log("req.file.buffer", req.file.buffer);
       if (req.file) {
         try {
           const result = await uploadToCloudinary(req.file.buffer);
