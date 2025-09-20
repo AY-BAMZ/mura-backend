@@ -1,34 +1,28 @@
-import { upload, deleteImage } from "../utils/fileUpload.js";
-import { v2 as cloudinary } from "cloudinary";
+import multer from "multer";
+import fs from "fs";
+import path from "path";
+import handleUpload from "../utils/uploader.js";
 import logger from "../config/logger.js";
+import { deleteImage } from "../utils/fileUpload.js";
 
-// Upload to cloudinary helper (memory buffer)
-const uploadToCloudinary = (buffer, options = {}) => {
-  return new Promise((resolve, reject) => {
-    const uploadOptions = {
-      folder: "mura-food",
-      allowed_formats: ["jpg", "jpeg", "png", "webp"],
-      transformation: [
-        { width: 1200, height: 1200, crop: "limit", quality: "auto:good" },
-      ],
-      public_id:
-        options.public_id ||
-        `upload-${Date.now()}-${Math.round(Math.random() * 1e9)}`,
-      ...options,
-    };
-    const stream = cloudinary.uploader.upload_stream(
-      uploadOptions,
-      (error, result) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(result);
-        }
-      }
-    );
-    stream.end(buffer);
-  });
-};
+// Ensure the uploads directory exists
+const uploadDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
+
+// Multer disk storage config
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${Date.now()}-${file.originalname}`);
+  },
+});
+
+export const upload = multer({ storage });
+// ...existing code...
 
 // @desc    Upload single image
 // @route   POST /api/utility/upload/single
@@ -49,8 +43,9 @@ export const uploadSingleImage = async (req, res) => {
       });
     }
     try {
-      const result = await uploadToCloudinary(req.file.buffer);
-      res.json({
+      const filePath = req.file.path;
+      const result = await handleUpload(filePath);
+      res.status(200).json({
         success: true,
         message: "Image uploaded successfully",
         data: {
@@ -58,8 +53,8 @@ export const uploadSingleImage = async (req, res) => {
           publicId: result.public_id,
         },
       });
-    } catch (uploadError) {
-      logger.error("Cloudinary upload error", { error: uploadError.message });
+    } catch (error) {
+      logger.error("Cloudinary upload error", { error: error.message });
       res.status(500).json({
         success: false,
         message: "Failed to upload image",
@@ -87,21 +82,19 @@ export const uploadMultipleImages = async (req, res) => {
       });
     }
     try {
-      const uploadPromises = req.files.map((file) =>
-        uploadToCloudinary(file.buffer)
-      );
+      const uploadPromises = req.files.map((file) => handleUpload(file.path));
       const results = await Promise.all(uploadPromises);
       const uploadedImages = results.map((result) => ({
         url: result.secure_url,
         publicId: result.public_id,
       }));
-      res.json({
+      res.status(200).json({
         success: true,
         message: "Images uploaded successfully",
         data: { images: uploadedImages },
       });
-    } catch (uploadError) {
-      logger.error("Cloudinary upload error", { error: uploadError.message });
+    } catch (error) {
+      logger.error("Cloudinary upload error", { error: error.message });
       res.status(500).json({
         success: false,
         message: "Failed to upload images",
