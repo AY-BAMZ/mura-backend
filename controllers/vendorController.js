@@ -796,3 +796,66 @@ export const updateBankDetails = async (req, res) => {
     });
   }
 };
+
+export const getVendorReviews = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const { skip, limit: limitNum } = getPagination(page, limit);
+
+    const vendor = await Vendor.findOne({ user: req.user.id });
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor profile not found",
+      });
+    }
+
+    const total = await Order.countDocuments({
+      vendor: vendor._id,
+      "reviews.vendor": vendor._id,
+    });
+    const orders = await Order.find({
+      vendor: vendor._id,
+      "reviews.vendor": vendor._id,
+    })
+      .populate("customer", "firstName lastName")
+      .populate("reviews.vendor", "businessName")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    // Extract reviews from orders
+    const reviews = [];
+    orders.forEach((order) => {
+      order.reviews.forEach((review) => {
+        if (review.vendor.toString() === vendor._id.toString()) {
+          reviews.push({
+            ...review.toObject(),
+            customer: order.customer,
+            orderId: order._id,
+            createdAt: order.createdAt,
+          });
+        }
+      });
+    });
+
+    res.json({
+      success: true,
+      data: {
+        reviews,
+        pagination: {
+          page: parseInt(page),
+          limit: limitNum,
+          total,
+          pages: Math.ceil(total / limitNum),
+        },
+      },
+    });
+  } catch (error) {
+    logger.error("Get vendor reviews error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};

@@ -15,6 +15,7 @@ import {
   updateBankDetails,
   withdrawEarnings,
   getVendorMealTypes,
+  getVendorReviews,
 } from "../controllers/vendorController.js";
 import {
   protect,
@@ -58,5 +59,8 @@ router.post("/withdraw", withdrawEarnings);
 
 // Bank details
 router.put("/bank-details", updateBankDetails);
+
+// reviews
+router.get("/reviews", getVendorReviews);
 
 export default router;
