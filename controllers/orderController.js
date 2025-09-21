@@ -124,6 +124,7 @@ export const createOrder = async (req, res) => {
       vendor: vendor._id,
       items: orderItems,
       type,
+      totalItemsPrice: itemAmount,
       pricing: {
         itemAmount,
         serviceCharge,

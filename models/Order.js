@@ -58,6 +58,10 @@ const orderSchema = new mongoose.Schema(
       default: null,
     },
     items: [orderItemSchema],
+    totalItemsPrice: {
+      type: Number,
+      required: false,
+    },
     type: {
       type: String,
       enum: ["one_time", "subscription"],
