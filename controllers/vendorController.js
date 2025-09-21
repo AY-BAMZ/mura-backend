@@ -578,10 +578,14 @@ export const getVendorOrderById = async (req, res) => {
       });
     }
 
+    const itemsTotalPrice = order.items.reduce((acc, item) => {
+      return acc + item.totalPrice * item.quantity;
+    }, 0);
+
     res.json({
       success: true,
       message: "Order fetched successfully",
-      data: { order },
+      data: { order, totalItemsPrice: itemsTotalPrice },
     });
   } catch (error) {
     logger.error("Get vendor order by ID error", { error: error.message });
