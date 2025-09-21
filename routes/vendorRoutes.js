@@ -16,6 +16,7 @@ import {
   withdrawEarnings,
   getVendorMealTypes,
   getVendorReviews,
+  getVendorOrderById,
 } from "../controllers/vendorController.js";
 import {
   protect,
@@ -48,6 +49,7 @@ router.get("/meals/types", getVendorMealTypes);
 
 // Order routes
 router.get("/orders", getVendorOrders);
+router.get("/orders/:id", getVendorOrderById);
 router.put("/orders/:id/status", updateOrderStatus);
 
 // Analytics and earnings

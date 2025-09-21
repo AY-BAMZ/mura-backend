@@ -550,6 +550,48 @@ export const getVendorOrders = async (req, res) => {
   }
 };
 
+export const getVendorOrderById = async (req, res) => {
+  try {
+    const vendor = await Vendor.findOne({ user: req.user.id });
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor profile not found",
+      });
+    }
+
+    const order = await Order.findOne({
+      _id: req.params.id,
+      vendor: vendor._id,
+    })
+      .populate("customer", "firstName lastName email")
+      .populate("rider", "firstName lastName")
+      .populate({
+        path: "items.meal",
+        select: "name images",
+      });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Order fetched successfully",
+      data: { order },
+    });
+  } catch (error) {
+    logger.error("Get vendor order by ID error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
 // @desc    Update order status
 // @route   PUT /api/vendor/orders/:id/status
 // @access  Private (Vendor)
