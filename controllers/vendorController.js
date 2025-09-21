@@ -521,7 +521,7 @@ export const getVendorOrders = async (req, res) => {
     const orders = await Order.find(query)
       .populate("customer", "firstName lastName email")
       .populate("rider", "firstName lastName")
-      .populate("items.meal", "name")
+      .populate("items.meal", "name", "images")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNum);
