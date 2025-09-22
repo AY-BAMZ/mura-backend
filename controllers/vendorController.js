@@ -111,6 +111,7 @@ export const updateVendorProfile = async (req, res) => {
       deliveryInfo,
       location,
       images,
+      profileSet,
     } = req.body;
 
     const vendor = await Vendor.findOne({ user: req.user.id });
@@ -140,6 +141,10 @@ export const updateVendorProfile = async (req, res) => {
     // Update location if provided
     if (location && location.coordinates) {
       vendor.user.location = location;
+      await vendor.user.save();
+    }
+    if (profileSet) {
+      vendor.user.profileSet = true;
       await vendor.user.save();
     }
 
