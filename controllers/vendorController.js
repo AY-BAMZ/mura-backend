@@ -140,12 +140,18 @@ export const updateVendorProfile = async (req, res) => {
 
     // Update location if provided
     if (location && location.coordinates) {
-      vendor.user.location = location;
-      await vendor.user.save();
+      await User.findByIdAndUpdate(
+        vendor.user._id || vendor.user,
+        { location },
+        { new: true }
+      );
     }
     if (profileSet) {
-      vendor.user.profileSet = true;
-      await vendor.user.save();
+      await User.findByIdAndUpdate(
+        vendor.user._id || vendor.user,
+        { profileSet: true },
+        { new: true }
+      );
     }
 
     await vendor.save();
