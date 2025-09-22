@@ -7,10 +7,6 @@ const vendorSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    profileSet: {
-      type: Boolean,
-      default: false,
-    },
     businessName: {
       type: String,
       required: [true, "Business name is required"],
