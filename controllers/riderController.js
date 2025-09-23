@@ -44,7 +44,8 @@ export const getRiderProfile = async (req, res) => {
 // @access  Private (Rider)
 export const updateRiderProfile = async (req, res) => {
   try {
-    const { vehicleInfo, availability } = req.body;
+    const { vehicleInfo, availability, location, profileSet, locationRider } =
+      req.body;
 
     const rider = await Rider.findOne({ user: req.user.id });
     if (!rider) {
@@ -55,8 +56,27 @@ export const updateRiderProfile = async (req, res) => {
     }
 
     // Update rider data
-    const updateData = cleanObject({ vehicleInfo, availability });
+    const updateData = cleanObject({
+      vehicleInfo,
+      availability,
+      location: locationRider,
+    });
     Object.assign(rider, updateData);
+    if (location && location.coordinates) {
+      await User.findByIdAndUpdate(
+        rider.user._id || rider.user,
+        { location },
+        { new: true }
+      );
+    }
+    if (profileSet) {
+      await User.findByIdAndUpdate(
+        rider.user._id || rider.user,
+        { profileSet: true },
+        { new: true }
+      );
+    }
+
     await rider.save();
 
     const updatedRider = await Rider.findById(rider._id).populate(
@@ -665,12 +685,10 @@ export const withdrawEarnings = async (req, res) => {
     });
 
     if (!orders.length) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "No eligible earnings to withdraw yet.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "No eligible earnings to withdraw yet.",
+      });
     }
 
     // Calculate total withdrawable amount
