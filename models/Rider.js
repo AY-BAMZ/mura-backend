@@ -10,8 +10,8 @@ const riderSchema = new mongoose.Schema(
     vehicleInfo: {
       type: {
         type: String,
-        enum: ["bike", "motorcycle", "car"],
-        required: true,
+        enum: ["bike", "motorcycle", "car", "truck"],
+        required: false,
       },
       make: String,
       model: String,
