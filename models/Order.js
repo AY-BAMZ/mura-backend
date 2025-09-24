@@ -191,6 +191,7 @@ orderSchema.index({ customer: 1, createdAt: -1 });
 orderSchema.index({ vendor: 1, status: 1 });
 orderSchema.index({ rider: 1, status: 1 });
 orderSchema.index({ status: 1, createdAt: -1 });
+orderSchema.index({ "deliveryAddress.coordinates": "2dsphere" });
 
 // Pre-save middleware to generate order number
 orderSchema.pre("save", async function (next) {
@@ -206,7 +207,6 @@ orderSchema.methods.calculateEarnings = function () {
   const adminCommission = this.pricing.total * 0.03; // 3% commission
   const vendorEarnings = this.pricing.subtotal - adminCommission;
   const riderEarnings = this.pricing.deliveryFee;
-  orderSchema.index({ "deliveryAddress.coordinates": "2dsphere" });
 
   return {
     adminCommission,
