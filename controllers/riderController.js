@@ -57,9 +57,9 @@ export const updateRiderProfile = async (req, res) => {
 
     // Update rider data
     const updateData = cleanObject({
-      vehicleInfo,
-      availability,
-      location: locationRider,
+      vehicleInfo: vehicleInfo || rider.vehicleInfo,
+      availability: availability || rider.availability,
+      location: locationRider || rider.location,
     });
     Object.assign(rider, updateData);
     if (location && location.coordinates) {
