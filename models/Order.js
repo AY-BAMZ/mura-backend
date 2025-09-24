@@ -206,6 +206,7 @@ orderSchema.methods.calculateEarnings = function () {
   const adminCommission = this.pricing.total * 0.03; // 3% commission
   const vendorEarnings = this.pricing.subtotal - adminCommission;
   const riderEarnings = this.pricing.deliveryFee;
+  orderSchema.index({ "deliveryAddress.coordinates": "2dsphere" });
 
   return {
     adminCommission,
