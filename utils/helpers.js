@@ -84,6 +84,10 @@ export const validateCoordinates = (longitude, latitude) => {
   );
 };
 
+export const generateDeliveryCode = () => {
+  return Math.floor(1000 + Math.random() * 9000); // 4-digit code
+};
+
 // Clean object (remove undefined/null values)
 export const cleanObject = (obj) => {
   return Object.keys(obj).reduce((acc, key) => {

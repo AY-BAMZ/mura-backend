@@ -3,7 +3,7 @@ import Customer from "../models/Customer.js";
 import Vendor from "../models/Vendor.js";
 import { Meal } from "../models/Meal.js";
 import Notification from "../models/Notification.js";
-import { calculateOrderTotal } from "../utils/helpers.js";
+import { calculateOrderTotal, generateDeliveryCode } from "../utils/helpers.js";
 import { sendOrderNotificationEmail } from "../utils/email.js";
 import stripe from "../config/stripe.js";
 import logger from "../config/logger.js";
@@ -117,6 +117,7 @@ export const createOrder = async (req, res) => {
     const datePart = today.toISOString().slice(0, 10).replace(/-/g, "");
     const randomPart = Math.floor(1000 + Math.random() * 9000);
     const orderReference = `ORD-${datePart}-${randomPart}`;
+    const deliveryCode = generateDeliveryCode();
     // Create order
     const order = await Order.create({
       orderNumber: orderReference,
@@ -154,6 +155,7 @@ export const createOrder = async (req, res) => {
           notes: "Order created",
         },
       ],
+      deliveryCode: deliveryCode,
     });
 
     // Update payment status based on payment intent
