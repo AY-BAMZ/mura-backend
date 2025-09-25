@@ -136,6 +136,7 @@ const orderSchema = new mongoose.Schema(
         "accepted",
         "picked_up",
         "on_the_way",
+        "arrived",
         "delivered",
         "cancelled",
       ],
@@ -181,6 +182,7 @@ const orderSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    deliveryCode: Number,
   },
   {
     timestamps: true,

@@ -298,7 +298,7 @@ export const acceptDelivery = async (req, res) => {
 
     const order = await Order.findOne({
       _id: req.params.id,
-      status: "accepted",
+      status: "ready",
       rider: null,
     });
 
@@ -311,12 +311,12 @@ export const acceptDelivery = async (req, res) => {
 
     // Assign rider to order
     order.rider = rider._id;
-    order.status = "picked_up";
+    order.status = "accepted";
     order.timeline.push({
-      status: "picked_up",
+      status: "accepted",
       timestamp: new Date(),
       updatedBy: req.user.id,
-      notes: "Order picked up by rider",
+      notes: "Order accepted by rider",
     });
 
     await order.save();
@@ -439,7 +439,7 @@ export const getDeliveryById = async (req, res) => {
 // @access  Private (Rider)
 export const updateDeliveryStatus = async (req, res) => {
   try {
-    const { status, notes } = req.body;
+    const { status, notes, code = null } = req.body;
 
     const rider = await Rider.findOne({ user: req.user.id });
     if (!rider) {
@@ -461,10 +461,24 @@ export const updateDeliveryStatus = async (req, res) => {
       });
     }
 
+    if (status === "delivered" && !code) {
+      return res.status(400).json({
+        success: false,
+        message: "Delivery code is required for delivered status",
+      });
+    }
+    if (status === "delivered" && order.deliveryCode !== code) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid delivery code",
+      });
+    }
     // Validate status transition
     const validTransitions = {
+      accepted: ["picked_up"],
       picked_up: ["on_the_way"],
-      on_the_way: ["delivered"],
+      on_the_way: ["arrived"],
+      arrived: ["delivered"],
     };
 
     if (!validTransitions[order.status]?.includes(status)) {
