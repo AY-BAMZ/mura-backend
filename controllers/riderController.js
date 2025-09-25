@@ -247,7 +247,7 @@ export const getAvailableDeliveries = async (req, res) => {
       orders = await Order.find(query)
         .populate("vendor", "businessName user")
         .populate("customer", "user")
-        .populate("items.meal", "name")
+        .populate("items.meal", "name images")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum);
@@ -298,7 +298,7 @@ export const acceptDelivery = async (req, res) => {
 
     const order = await Order.findOne({
       _id: req.params.id,
-      status: "ready",
+      status: "accepted",
       rider: null,
     });
 
