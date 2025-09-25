@@ -396,6 +396,44 @@ export const getRiderDeliveries = async (req, res) => {
   }
 };
 
+export const getDeliveryById = async (req, res) => {
+  try {
+    const rider = await Rider.findOne({ user: req.user.id });
+    if (!rider) {
+      return res.status(404).json({
+        success: false,
+        message: "Rider profile not found",
+      });
+    }
+
+    const order = await Order.findOne({
+      _id: req.params.id,
+      rider: rider._id,
+    })
+      .populate("vendor", "businessName user")
+      .populate("customer", "user")
+      .populate("items.meal", "name images");
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Delivery not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { order },
+    });
+  } catch (error) {
+    logger.error("Get delivery by ID error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
 // @desc    Update delivery status
 // @route   PUT /api/rider/deliveries/:id/status
 // @access  Private (Rider)

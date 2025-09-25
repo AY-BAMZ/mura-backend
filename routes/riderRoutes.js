@@ -11,10 +11,9 @@ import {
   getRiderAnalytics,
   getRiderEarnings,
   updateBankDetails,
+  getDeliveryById,
 } from "../controllers/riderController.js";
-import {
-  withdrawEarnings,
-} from "../controllers/riderController.js";
+import { withdrawEarnings } from "../controllers/riderController.js";
 import {
   protect,
   authorize,
@@ -41,6 +40,7 @@ router.get("/deliveries/available", getAvailableDeliveries);
 router.post("/deliveries/:id/accept", acceptDelivery);
 router.get("/deliveries", getRiderDeliveries);
 router.put("/deliveries/:id/status", updateDeliveryStatus);
+router.get("/deliveries/:id", getDeliveryById); // Get specific delivery by ID
 
 // Analytics and earnings
 router.get("/analytics", getRiderAnalytics);
