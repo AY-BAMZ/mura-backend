@@ -146,6 +146,7 @@ export const login = async (req, res) => {
           role: user.role,
           isVerified: user.isVerified,
           profileImage: user.profileImage,
+          profileSet: user.profileSet,
         },
       },
     });
