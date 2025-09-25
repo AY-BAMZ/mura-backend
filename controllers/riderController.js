@@ -770,3 +770,115 @@ export const withdrawEarnings = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+export const getRiderReviews = async (req, res) => {
+  try {
+    const rider = await Rider.findOne({ user: req.user.id });
+    if (!rider) {
+      return res.status(404).json({
+        success: false,
+        message: "Rider profile not found",
+      });
+    }
+
+    const reviews = await Order.find({
+      rider: rider._id,
+      "reviews.rider.rating": { $exists: true },
+    })
+      .populate("customer", "user")
+      .select("reviews.rider createdAt");
+
+    const formattedReviews = reviews.map((order) => ({
+      rating: order.reviews.rider.rating,
+      review: order.reviews.rider.review,
+      customer: order.customer,
+      date: order.createdAt,
+    }));
+
+    res.json({
+      success: true,
+      data: { reviews: formattedReviews },
+    });
+  } catch (error) {
+    logger.error("Get rider reviews error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+export const getRiderAnalyticsOverview = async (req, res) => {
+  try {
+    const rider = await Rider.findOne({ user: req.user.id });
+    if (!rider) {
+      return res.status(404).json({
+        success: false,
+        message: "Rider profile not found",
+      });
+    }
+
+    const analytics = {
+      totalDeliveries: rider.metrics.totalDeliveries,
+      completedDeliveries: rider.metrics.completedDeliveries,
+      cancelledDeliveries: rider.metrics.cancelledDeliveries,
+      averageDeliveryTime: rider.metrics.averageDeliveryTime,
+      onTimeDeliveries: rider.metrics.onTimeDeliveries,
+      earnings: {
+        total: rider.earnings.totalEarnings,
+        available: rider.earnings.availableBalance,
+        pending: rider.earnings.pendingBalance,
+      },
+      rating: {
+        average: rider.ratings.average,
+        count: rider.ratings.count,
+      },
+    };
+
+    res.json({
+      success: true,
+      data: { analytics },
+    });
+  } catch (error) {
+    logger.error("Get rider analytics overview error", {
+      error: error.message,
+    });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+export const getMyActiveDeliveries = async (req, res) => {
+  try {
+    const rider = await Rider.findOne({ user: req.user.id });
+    if (!rider) {
+      return res.status(404).json({
+        success: false,
+        message: "Rider profile not found",
+      });
+    }
+
+    const activeStatuses = ["accepted", "picked_up", "on_the_way", "arrived"];
+    const activeDeliveries = await Order.find({
+      rider: rider._id,
+      status: { $in: activeStatuses },
+    })
+      .populate("vendor", "businessName user")
+      .populate("customer", "user")
+      .populate("items.meal", "name images")
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: { deliveries: activeDeliveries },
+    });
+  } catch (error) {
+    logger.error("Get my active deliveries error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};

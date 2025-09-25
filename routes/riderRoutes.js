@@ -12,6 +12,7 @@ import {
   getRiderEarnings,
   updateBankDetails,
   getDeliveryById,
+  getMyActiveDeliveries,
 } from "../controllers/riderController.js";
 import { withdrawEarnings } from "../controllers/riderController.js";
 import {
@@ -41,6 +42,7 @@ router.post("/deliveries/:id/accept", acceptDelivery);
 router.get("/deliveries", getRiderDeliveries);
 router.put("/deliveries/:id/status", updateDeliveryStatus);
 router.get("/deliveries/:id", getDeliveryById); // Get specific delivery by ID
+router.get("/deliveries/active", getMyActiveDeliveries); // Get active deliveries
 
 // Analytics and earnings
 router.get("/analytics", getRiderAnalytics);
