@@ -467,6 +467,9 @@ export const updateDeliveryStatus = async (req, res) => {
         message: "Delivery code is required for delivered status",
       });
     }
+
+    console.log("code", code);
+    console.log("order.deliveryCode", order.deliveryCode);
     if (status === "delivered" && order.deliveryCode !== code) {
       return res.status(400).json({
         success: false,
