@@ -452,7 +452,7 @@ export const updateDeliveryStatus = async (req, res) => {
     const order = await Order.findOne({
       _id: req.params.id,
       rider: rider._id,
-    });
+    }).select("+deliveryCode");
 
     console.log("order", order);
 
