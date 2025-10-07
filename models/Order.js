@@ -182,7 +182,7 @@ const orderSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-    deliveryCode: Number,
+    deliveryCode: { type: Number, required: false },
   },
   {
     timestamps: true,

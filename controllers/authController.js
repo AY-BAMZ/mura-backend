@@ -31,6 +31,14 @@ export const register = async (req, res) => {
       });
     }
 
+    const existingPhone = await User.findOne({ phone });
+    if (existingPhone) {
+      return res.status(400).json({
+        success: false,
+        message: "User already exists with this phone number",
+      });
+    }
+
     // Create user
     const user = await User.create({
       firstName,
