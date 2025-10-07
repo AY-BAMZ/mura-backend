@@ -454,6 +454,8 @@ export const updateDeliveryStatus = async (req, res) => {
       rider: rider._id,
     });
 
+    console.log("order", order);
+
     if (!order) {
       return res.status(404).json({
         success: false,
