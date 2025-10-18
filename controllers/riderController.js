@@ -478,6 +478,12 @@ export const updateDeliveryStatus = async (req, res) => {
         message: "Invalid delivery code",
       });
     }
+    if (status === "accepted" && order.pickupCode !== code) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid pickup code",
+      });
+    }
     // Validate status transition
     const validTransitions = {
       accepted: ["picked_up"],
