@@ -478,7 +478,7 @@ export const updateDeliveryStatus = async (req, res) => {
         message: "Invalid delivery code",
       });
     }
-    if (status === "accepted" && order.pickupCode !== code) {
+    if (status === "picked_up" && order.pickupCode !== code) {
       return res.status(400).json({
         success: false,
         message: "Invalid pickup code",
