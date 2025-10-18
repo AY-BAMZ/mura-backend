@@ -29,9 +29,16 @@ export const getCustomerProfile = async (req, res) => {
       });
     }
 
+    // Add wallet balance to profile
+    const user = await User.findById(req.user.id).select("wallet");
+    const profileData = {
+      ...customer.toObject(),
+      wallet: user.wallet,
+    };
+
     res.json({
       success: true,
-      data: { customer },
+      data: { customer: profileData },
     });
   } catch (error) {
     logger.error("Get customer profile error", { error: error.message });

@@ -7,6 +7,7 @@ import {
   cleanObject,
   calculateDistance,
 } from "../utils/helpers.js";
+import { processOrderEarnings } from "./walletController.js";
 import logger from "../config/logger.js";
 
 // @desc    Get rider profile
@@ -26,9 +27,16 @@ export const getRiderProfile = async (req, res) => {
       });
     }
 
+    // Add wallet balance to profile
+    const user = await User.findById(req.user.id).select("wallet");
+    const profileData = {
+      ...rider.toObject(),
+      wallet: user.wallet,
+    };
+
     res.json({
       success: true,
-      data: { rider },
+      data: { rider: profileData },
     });
   } catch (error) {
     logger.error("Get rider profile error", { error: error.message });
@@ -521,6 +529,9 @@ export const updateDeliveryStatus = async (req, res) => {
       rider.earnings.availableBalance += earnings;
 
       await rider.save();
+
+      // Process wallet earnings for vendor and rider
+      await processOrderEarnings(order._id);
     }
 
     await order.save();

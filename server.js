@@ -25,6 +25,7 @@ import orderRoutes from "./routes/orderRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import utilityRoutes from "./routes/utilityRoutes.js";
+import walletRoutes from "./routes/walletRoutes.js";
 
 // Load environment variables
 dotenv.config();
@@ -105,6 +106,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/utility", utilityRoutes);
+app.use("/api/wallet", walletRoutes);
 
 // Error handling middleware
 app.use(notFound);

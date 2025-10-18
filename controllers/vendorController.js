@@ -84,9 +84,16 @@ export const getVendorProfile = async (req, res) => {
       });
     }
 
+    // Add wallet balance to profile
+    const user = await User.findById(req.user.id).select("wallet");
+    const profileData = {
+      ...vendor.toObject(),
+      wallet: user.wallet,
+    };
+
     res.json({
       success: true,
-      data: { vendor },
+      data: { vendor: profileData },
       message: "Vendor profile fetched successfully",
     });
   } catch (error) {
