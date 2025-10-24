@@ -118,6 +118,7 @@ export const createOrder = async (req, res) => {
     const randomPart = Math.floor(1000 + Math.random() * 9000);
     const orderReference = `ORD-${datePart}-${randomPart}`;
     const deliveryCode = generateDeliveryCode();
+    const pickupCode = generateDeliveryCode();
     // Create order
     const order = await Order.create({
       orderNumber: orderReference,
@@ -156,6 +157,7 @@ export const createOrder = async (req, res) => {
         },
       ],
       deliveryCode: deliveryCode,
+      pickupCode: pickupCode,
     });
 
     // Update payment status based on payment intent
