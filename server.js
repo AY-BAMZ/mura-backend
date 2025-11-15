@@ -70,7 +70,7 @@ app.use(compression());
 // CORS configuration
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  "https://mura-admin-l1qt57wc3-bamzzdev.vercel.app",
+  "https://mura-admin.vercel.app",
   "http://localhost:3000",
   "http://localhost:3001",
   "http://localhost:5173",
