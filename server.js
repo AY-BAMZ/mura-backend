@@ -17,6 +17,7 @@ import logger from "./config/logger.js";
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import adminDashboardRoutes from "./routes/adminDashboardRoutes.js";
 import vendorRoutes from "./routes/vendorRoutes.js";
 import customerRoutes from "./routes/customerRoutes.js";
 import riderRoutes from "./routes/riderRoutes.js";
@@ -98,6 +99,7 @@ app.get("/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/admin/dashboard", adminDashboardRoutes);
 app.use("/api/vendor", vendorRoutes);
 app.use("/api/customer", customerRoutes);
 app.use("/api/rider", riderRoutes);

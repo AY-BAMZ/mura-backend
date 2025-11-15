@@ -134,9 +134,8 @@ export const login = async (req, res) => {
       });
     }
 
-    // Update last login
-    user.lastLogin = new Date();
-    await user.save();
+    // Update last login without triggering password hash
+    await User.findByIdAndUpdate(user._id, { lastLogin: new Date() });
 
     // Generate token
     const token = generateToken(user._id);
@@ -401,6 +400,87 @@ export const changePassword = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
+    });
+  }
+};
+
+// @desc    Admin login
+// @route   POST /api/auth/admin/login
+// @access  Public
+export const adminLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Check if user exists
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      });
+    }
+
+    // Check if user is admin or manager
+    if (user.role !== "admin" && user.role !== "manager") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Admin privileges required.",
+      });
+    }
+
+    // Check if account is active
+    if (!user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "Your admin account has been deactivated. Please contact super admin.",
+      });
+    }
+
+    // Check password
+    const isPasswordCorrect = await user.comparePassword(password);
+    if (!isPasswordCorrect) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      });
+    }
+
+    // Update last login without triggering password hash
+    await User.findByIdAndUpdate(user._id, { lastLogin: new Date() });
+
+    // Generate token
+    const token = generateToken(user._id);
+
+    logger.info("Admin login successful", {
+      userId: user._id,
+      email: user.email,
+      role: user.role,
+    });
+
+    res.json({
+      success: true,
+      message: "Admin login successful",
+      data: {
+        token,
+        user: {
+          id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          role: user.role,
+          adminType: user.adminType,
+          isVerified: user.isVerified,
+          profileImage: user.profileImage,
+          permissions: user.permissions || [],
+        },
+      },
+    });
+  } catch (error) {
+    logger.error("Admin login error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error during admin login",
     });
   }
 };

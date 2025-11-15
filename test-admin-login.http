@@ -1,0 +1,62 @@
+### Admin Login Endpoint Test
+### Use this file with REST Client extension in VS Code
+
+@baseUrl = http://localhost:5080/api
+@adminEmail = admin@mura.com
+@adminPassword = 12345678
+
+### 1. Admin Login
+POST {{baseUrl}}/auth/admin/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "{{adminPassword}}"
+}
+
+### 2. Regular User Login (for comparison)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "customer@example.com",
+  "password": "password123"
+}
+
+### 3. Failed Admin Login - Wrong Password
+POST {{baseUrl}}/auth/admin/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "wrongpassword"
+}
+
+### 4. Failed Admin Login - Non-admin User
+POST {{baseUrl}}/auth/admin/login
+Content-Type: application/json
+
+{
+  "email": "customer@example.com",
+  "password": "password123"
+}
+
+### Expected Response (Success):
+# {
+#   "success": true,
+#   "message": "Admin login successful",
+#   "data": {
+#     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+#     "user": {
+#       "id": "6917d765352332312f0b8af8",
+#       "firstName": "Super",
+#       "lastName": "Admin",
+#       "email": "admin@mura.com",
+#       "role": "admin",
+#       "adminType": "super_admin",
+#       "isVerified": true,
+#       "profileImage": null,
+#       "permissions": []
+#     }
+#   }
+# }

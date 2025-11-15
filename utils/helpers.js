@@ -130,3 +130,13 @@ export const calculateOrderTotal = (
     total: Math.round(total * 100) / 100,
   };
 };
+
+export const sendNotification = (token, title, description, type) => {
+  console.log(
+    "token, title, description, type",
+    token,
+    title,
+    description,
+    type
+  );
+};
