@@ -7,6 +7,11 @@ const vendorSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    status: {
+      type: String,
+      enum: ["active", "inactive", "suspended", "pending"],
+      default: "pending",
+    },
     businessName: {
       type: String,
       required: [true, "Business name is required"],

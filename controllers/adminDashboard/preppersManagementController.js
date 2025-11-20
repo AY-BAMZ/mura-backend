@@ -82,6 +82,18 @@ export const getAllPreppers = async (req, res) => {
         const revenue =
           revenueData.length > 0 ? revenueData[0].totalRevenue : 0;
 
+        const menus = await Meal.find({
+          vendor: vendor._id,
+          isDeleted: { $ne: true },
+        });
+        const menuItems = menus.map((meal) => ({
+          _id: meal._id,
+          name: meal.name,
+          price: meal.price,
+          status: meal.status,
+          images: meal.images.main,
+        }));
+
         return {
           _id: vendor._id,
           businessName: vendor.businessName,
@@ -98,6 +110,7 @@ export const getAllPreppers = async (req, res) => {
             totalOrders: ordersCount,
             totalRevenue: revenue,
           },
+          menuItems,
         };
       })
     );

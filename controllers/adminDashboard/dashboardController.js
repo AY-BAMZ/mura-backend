@@ -324,7 +324,9 @@ export const getDashboardOverview = async (req, res) => {
 // @access  Private/Admin
 export const getDashboardGraphs = async (req, res) => {
   try {
-    const { period = "daily", type = "revenue" } = req.query;
+    const { period, type } = req.query;
+
+    console.log("period", period);
 
     let startDate;
     let groupBy;

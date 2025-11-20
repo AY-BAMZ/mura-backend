@@ -8,7 +8,7 @@ import logger from "../../config/logger.js";
 // @access  Private/Admin
 export const getAllAdmins = async (req, res) => {
   try {
-    const { page = 1, limit = 20, role, status } = req.query;
+    const { page = 1, limit = 20, role, status, type: adminType } = req.query;
 
     const { skip, limit: pageLimit } = getPagination(page, limit);
 
@@ -24,6 +24,10 @@ export const getAllAdmins = async (req, res) => {
       filter.isActive = true;
     } else if (status === "inactive") {
       filter.isActive = false;
+    }
+
+    if (adminType) {
+      filter.adminType = adminType;
     }
 
     const admins = await User.find(filter)

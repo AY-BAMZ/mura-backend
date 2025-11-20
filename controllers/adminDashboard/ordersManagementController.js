@@ -90,8 +90,22 @@ export const getAllOrders = async (req, res) => {
 
     const total = await Order.countDocuments(filter);
 
+    const totalOrders = await Order.countDocuments();
+    const totalPending = await Order.countDocuments({ status: "pending" });
+    const totalPreparing = await Order.countDocuments({ status: "preparing" });
+    const totalOnTheWay = await Order.countDocuments({ status: "on_the_way" });
+    const totalDelivered = await Order.countDocuments({ status: "delivered" });
+    const totalCancelled = await Order.countDocuments({ status: "cancelled" });
     res.json({
       success: true,
+      metrics: {
+        totalOrders,
+        totalPending,
+        totalPreparing,
+        totalOnTheWay,
+        totalDelivered,
+        totalCancelled,
+      },
       data: {
         orders,
         pagination: {
