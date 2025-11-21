@@ -458,9 +458,10 @@ export const getAdminProfile = async (req, res) => {
 // @access  Private/Admin
 export const updateAdminProfile = async (req, res) => {
   try {
-    const { firstName, lastName, phone, profileImage } = req.body;
+    const { firstName, lastName, phone, profileImage, adminType, _id } =
+      req.body;
 
-    const admin = await User.findById(req.user._id);
+    const admin = await User.findById(_id);
 
     if (!admin) {
       return res.status(404).json({
@@ -473,6 +474,7 @@ export const updateAdminProfile = async (req, res) => {
     if (lastName) admin.lastName = lastName;
     if (phone) admin.phone = phone;
     if (profileImage) admin.profileImage = profileImage;
+    if (adminType) admin.adminType = adminType;
 
     await admin.save();
 
