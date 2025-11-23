@@ -369,6 +369,12 @@ export const flagCustomerAccount = async (req, res) => {
         timestamp: new Date(),
       });
       user.flags.count = (user.flags.count || 0) + 1;
+
+      // Make account inactive when flagged
+      user.isActive = false;
+    } else {
+      // Optionally reactivate account when unflagged
+      user.isActive = true;
     }
 
     if (!user.adminNotes) {
@@ -387,13 +393,14 @@ export const flagCustomerAccount = async (req, res) => {
     res.json({
       success: true,
       message: `Customer account ${
-        flagged ? "flagged" : "unflagged"
+        flagged ? "flagged and deactivated" : "unflagged and reactivated"
       } successfully`,
       data: {
         _id: user._id,
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
+        isActive: user.isActive,
         flags: user.flags,
       },
     });

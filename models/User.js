@@ -153,6 +153,68 @@ const userSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+    // Account flags for moderation
+    flags: {
+      isFlagged: {
+        type: Boolean,
+        default: false,
+      },
+      reasons: [
+        {
+          reason: String,
+          severity: {
+            type: String,
+            enum: ["low", "medium", "high"],
+            default: "medium",
+          },
+          flaggedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+          },
+          timestamp: {
+            type: Date,
+            default: Date.now,
+          },
+        },
+      ],
+      count: {
+        type: Number,
+        default: 0,
+      },
+    },
+    // Admin notes and actions
+    adminNotes: [
+      {
+        admin: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        action: String,
+        reason: String,
+        timestamp: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    // Soft delete fields
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    deletionReason: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,

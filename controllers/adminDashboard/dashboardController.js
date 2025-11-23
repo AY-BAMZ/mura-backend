@@ -486,12 +486,29 @@ export const getRecentActivities = async (req, res) => {
       .limit(parseInt(limit))
       .select("firstName lastName email role createdAt");
 
+    const totalPendingOrders = await Order.countDocuments({
+      status: "pending",
+    });
+    const totalOngoingOrders = await Order.countDocuments({
+      status: ["preparing", "ready", "accepted", "picked_up", "on_the_way"],
+    });
+    const totalCompletedOrders = await Order.countDocuments({
+      status: "delivered",
+    });
+    const totalCancelledOrders = await Order.countDocuments({
+      status: "cancelled",
+    });
+
     res.json({
       success: true,
       data: {
-        recentOrders,
-        recentTransactions,
+        // recentOrders,
+        // recentTransactions,
         recentSignups,
+        totalPendingOrders,
+        totalOngoingOrders,
+        totalCompletedOrders,
+        totalCancelledOrders,
       },
     });
   } catch (error) {

@@ -32,6 +32,7 @@ import {
   getPrepperDetails,
   updatePrepperApplication,
   updatePrepperStatus,
+  flagPrepperAccount,
   getPrepperMenu,
   updatePrepperMeal,
   getPrepperComplaints,
@@ -144,6 +145,7 @@ router.get("/preppers/stats", getPrepperStatistics);
 router.get("/preppers/:prepperId", getPrepperDetails);
 router.put("/preppers/:prepperId/application", updatePrepperApplication);
 router.put("/preppers/:prepperId/status", updatePrepperStatus);
+router.put("/preppers/:prepperId/flag", flagPrepperAccount);
 router.get("/preppers/:prepperId/menu", getPrepperMenu);
 router.put("/preppers/:prepperId/menu/:mealId", updatePrepperMeal);
 router.get("/preppers/:prepperId/complaints", getPrepperComplaints);

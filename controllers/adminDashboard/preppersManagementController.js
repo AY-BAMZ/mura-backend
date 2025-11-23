@@ -407,6 +407,127 @@ export const updatePrepperStatus = async (req, res) => {
   }
 };
 
+// @desc    Flag prepper account for abuse/reports
+// @route   PUT /api/admin/dashboard/preppers/:prepperId/flag
+// @access  Private/Admin
+export const flagPrepperAccount = async (req, res) => {
+  try {
+    const { prepperId } = req.params;
+    const { flagged, reason, severity } = req.body;
+
+    if (typeof flagged !== "boolean") {
+      return res.status(400).json({
+        success: false,
+        message: "flagged must be a boolean value",
+      });
+    }
+
+    const vendor = await Vendor.findById(prepperId).populate(
+      "user",
+      "firstName lastName email"
+    );
+
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Prepper not found",
+      });
+    }
+
+    const user = await User.findById(vendor.user._id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User account not found",
+      });
+    }
+
+    // Initialize flags structure if not present
+    if (!user.flags) {
+      user.flags = {
+        isFlagged: false,
+        reasons: [],
+        count: 0,
+      };
+    }
+
+    user.flags.isFlagged = flagged;
+
+    if (flagged) {
+      user.flags.reasons.push({
+        reason: reason || "No reason provided",
+        severity: severity || "medium", // low, medium, high
+        flaggedBy: req.user._id,
+        timestamp: new Date(),
+      });
+      user.flags.count = (user.flags.count || 0) + 1;
+
+      // Make account inactive when flagged
+      user.isActive = false;
+      vendor.status = "suspended";
+    } else {
+      // Optionally reactivate account when unflagged
+      user.isActive = true;
+      vendor.status = "active";
+    }
+
+    // Add admin notes
+    if (!user.adminNotes) {
+      user.adminNotes = [];
+    }
+
+    user.adminNotes.push({
+      admin: req.user._id,
+      action: flagged ? "Prepper account flagged" : "Flag removed",
+      reason: reason || "No reason provided",
+      timestamp: new Date(),
+    });
+
+    await user.save();
+    await vendor.save();
+
+    // Send notification to prepper
+    if (flagged && vendor.user?.expoToken) {
+      await sendNotification(
+        vendor.user.expoToken,
+        "Account Flagged",
+        `Your account has been flagged and suspended. Reason: ${
+          reason || "No reason provided"
+        }`,
+        { type: "account_flagged" }
+      );
+    }
+
+    res.json({
+      success: true,
+      message: `Prepper account ${
+        flagged ? "flagged and deactivated" : "unflagged and reactivated"
+      } successfully`,
+      data: {
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        isActive: user.isActive,
+        flags: user.flags,
+        vendor: {
+          _id: vendor._id,
+          businessName: vendor.businessName,
+          status: vendor.status,
+        },
+      },
+    });
+  } catch (error) {
+    logger.error("Flag prepper account error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Failed to flag prepper account",
+      error: error.message,
+    });
+  }
+};
+
 // @desc    Get prepper's menu items
 // @route   GET /api/admin/dashboard/preppers/:prepperId/menu
 // @access  Private/Admin
