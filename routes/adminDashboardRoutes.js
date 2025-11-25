@@ -79,6 +79,7 @@ import {
   getDriverPerformanceReport,
   getRegionalRevenueReport,
   exportComprehensiveReport,
+  getRevenueAnalytics,
 } from "../controllers/adminDashboard/revenueReportsController.js";
 
 import {
@@ -195,6 +196,7 @@ router.get("/reports/vendor-performance", getVendorPerformanceReport);
 router.get("/reports/driver-performance", getDriverPerformanceReport);
 router.get("/reports/regional-revenue", getRegionalRevenueReport);
 router.get("/reports/export", exportComprehensiveReport);
+router.get("/reports/revenue-analytics", getRevenueAnalytics);
 
 // ============================================
 // 9. NOTIFICATIONS MANAGEMENT ROUTES

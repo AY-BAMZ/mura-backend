@@ -652,3 +652,324 @@ export const exportComprehensiveReport = async (req, res) => {
     });
   }
 };
+
+// @desc    Get revenue analytics (DB-driven)
+// @route   GET /api/admin/dashboard/reports/revenue-analytics
+// @access  Private/Admin
+// Query params: `dateRange` or `duration` (today|week|month|year), `limit`
+export const getRevenueAnalytics = async (req, res) => {
+  try {
+    const {
+      dateRange,
+      duration,
+      startDate: startDateParam,
+      endDate: endDateParam,
+      limit = 5,
+    } = req.query;
+    const range = dateRange || duration || "month";
+
+    // determine startDate / endDate based on provided params or range
+    const now = new Date();
+    let startDate;
+    let endDate;
+
+    if (startDateParam || endDateParam) {
+      // if user provided explicit dates, parse them
+      startDate = startDateParam ? new Date(startDateParam) : new Date(0);
+      endDate = endDateParam ? new Date(endDateParam) : new Date();
+      // normalize times
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+    } else {
+      // determine start date based on requested range
+      switch (range) {
+        case "today":
+          startDate = new Date();
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date();
+          endDate.setHours(23, 59, 59, 999);
+          break;
+        case "week":
+          startDate = new Date();
+          startDate.setDate(startDate.getDate() - 7);
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date();
+          endDate.setHours(23, 59, 59, 999);
+          break;
+        case "year":
+          startDate = new Date();
+          startDate.setFullYear(startDate.getFullYear() - 1);
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date();
+          endDate.setHours(23, 59, 59, 999);
+          break;
+        case "month":
+        default:
+          startDate = new Date();
+          startDate.setMonth(startDate.getMonth() - 1);
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date();
+          endDate.setHours(23, 59, 59, 999);
+          break;
+      }
+    }
+
+    const createdAtMatch = { $gte: startDate };
+    if (endDate) createdAtMatch.$lte = endDate;
+
+    const baseMatch = {
+      status: "delivered",
+      paymentStatus: "completed",
+      createdAt: createdAtMatch,
+    };
+
+    // currentData: revenue, profit (serviceFee+tax), orders, avgOrder
+    const aggCurrent = await Order.aggregate([
+      { $match: baseMatch },
+      {
+        $group: {
+          _id: null,
+          revenue: { $sum: "$pricing.total" },
+          profitService: { $sum: "$pricing.serviceFee" },
+          profitTax: { $sum: "$pricing.tax" },
+          orders: { $sum: 1 },
+          avgOrder: { $avg: "$pricing.total" },
+        },
+      },
+    ]);
+
+    const currentData = aggCurrent.length
+      ? {
+          revenue: aggCurrent[0].revenue || 0,
+          profit:
+            (aggCurrent[0].profitService || 0) + (aggCurrent[0].profitTax || 0),
+          orders: aggCurrent[0].orders || 0,
+          avgOrder: aggCurrent[0].avgOrder || 0,
+        }
+      : { revenue: 0, profit: 0, orders: 0, avgOrder: 0 };
+
+    // top preppers (vendors)
+    const topPreppersAgg = await Order.aggregate([
+      { $match: baseMatch },
+      {
+        $group: {
+          _id: "$vendor",
+          revenue: { $sum: "$pricing.subtotal" },
+          orders: { $sum: 1 },
+        },
+      },
+      { $sort: { revenue: -1 } },
+      { $limit: parseInt(limit) },
+      {
+        $lookup: {
+          from: "vendors",
+          localField: "_id",
+          foreignField: "_id",
+          as: "vendorInfo",
+        },
+      },
+      { $unwind: { path: "$vendorInfo", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          name: "$vendorInfo.businessName",
+          revenue: 1,
+          orders: 1,
+          rating: "$vendorInfo.rating.average",
+        },
+      },
+    ]);
+
+    let preppers = [];
+    if (topPreppersAgg && topPreppersAgg.length > 0) {
+      const topPreppers = topPreppersAgg.map((p) => ({
+        name: p.name || "Unknown",
+        revenue: p.revenue || 0,
+        orders: p.orders || 0,
+        rating: p.rating || null,
+      }));
+
+      preppers = topPreppers.map((p) => ({
+        name: p.name,
+        revenue: Number((p.revenue || 0).toFixed(2)),
+        orders: p.orders,
+        rating:
+          p.rating !== undefined && p.rating !== null
+            ? Number(p.rating.toFixed(1))
+            : null,
+      }));
+    } else {
+      // Fallback: group by vendor in JS and lookup vendor info
+      const vendorGroups = await Order.aggregate([
+        { $match: baseMatch },
+        {
+          $group: {
+            _id: "$vendor",
+            revenue: { $sum: "$pricing.subtotal" },
+            orders: { $sum: 1 },
+          },
+        },
+        { $sort: { revenue: -1 } },
+        { $limit: parseInt(limit) },
+      ]);
+
+      if (vendorGroups && vendorGroups.length > 0) {
+        const vendorIds = vendorGroups.map((v) => v._id).filter(Boolean);
+        const vendors = await Vendor.find({ _id: { $in: vendorIds } }).select(
+          "businessName rating"
+        );
+        const vendorMap = vendors.reduce((acc, v) => {
+          acc[String(v._id)] = v;
+          return acc;
+        }, {});
+
+        preppers = vendorGroups.map((g) => {
+          const v = vendorMap[String(g._id)];
+          return {
+            name: (v && v.businessName) || "Unknown",
+            revenue: Number((g.revenue || 0).toFixed(2)),
+            orders: g.orders || 0,
+            rating:
+              v && v.rating && v.rating.average
+                ? Number(v.rating.average.toFixed(1))
+                : null,
+          };
+        });
+      }
+    }
+
+    // top meals
+    const topMealsAgg = await Order.aggregate([
+      { $match: baseMatch },
+      { $unwind: "$items" },
+      {
+        $group: {
+          _id: "$items.meal",
+          orders: { $sum: "$items.quantity" },
+          revenue: { $sum: "$items.totalPrice" },
+        },
+      },
+      { $sort: { orders: -1, revenue: -1 } },
+      { $limit: parseInt(limit) },
+      {
+        $lookup: {
+          from: "meals",
+          localField: "_id",
+          foreignField: "_id",
+          as: "mealInfo",
+        },
+      },
+      { $unwind: { path: "$mealInfo", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          name: "$mealInfo.name",
+          orders: 1,
+          revenue: 1,
+          category: "$mealInfo.mealType",
+        },
+      },
+    ]);
+    console.log("topMealsAgg", topMealsAgg);
+
+    const topMeals = topMealsAgg.map((m) => ({
+      name: m.name || "Unknown",
+      orders: m.orders || 0,
+      revenue: m.revenue || 0,
+      category: m.category || "Other",
+    }));
+
+    const meals = topMeals.map((m) => ({
+      name: m.name,
+      orders: m.orders,
+      revenue: Number((m.revenue || 0).toFixed(2)),
+      category: m.category,
+    }));
+
+    // region data (by city) - top 5
+    const regionAgg = await Order.aggregate([
+      { $match: baseMatch },
+      {
+        $group: {
+          _id: "$deliveryAddress.city",
+          orders: { $sum: 1 },
+          revenue: { $sum: "$pricing.total" },
+        },
+      },
+      { $sort: { revenue: -1 } },
+      { $limit: 10 },
+      {
+        $project: {
+          region: "$_id",
+          orders: 1,
+          revenue: 1,
+          _id: 0,
+        },
+      },
+    ]);
+
+    const regionData = regionAgg.map((r) => ({
+      region: r.region || "Unknown",
+      orders: r.orders || 0,
+      revenue: r.revenue || 0,
+      growth: null,
+    }));
+
+    // regional performance by category
+    const categoryAgg = await Order.aggregate([
+      { $match: baseMatch },
+      { $unwind: "$items" },
+      {
+        $lookup: {
+          from: "meals",
+          localField: "items.meal",
+          foreignField: "_id",
+          as: "mealInfo",
+        },
+      },
+      { $unwind: { path: "$mealInfo", preserveNullAndEmptyArrays: true } },
+      {
+        $group: {
+          _id: "$mealInfo.category",
+          orders: { $sum: "$items.quantity" },
+        },
+      },
+      { $sort: { orders: -1 } },
+    ]);
+
+    const totalCategoryOrders =
+      categoryAgg.reduce((s, c) => s + (c.orders || 0), 0) || 1;
+
+    const colors = [
+      "bg-primary-600",
+      "bg-warning-600",
+      "bg-success-600",
+      "bg-error-600",
+      "bg-gray-600",
+    ];
+
+    const regionalPerformance = categoryAgg.slice(0, 5).map((c, idx) => ({
+      category: c._id || "Other",
+      percentage: Math.round(((c.orders || 0) / totalCategoryOrders) * 100),
+      orders: c.orders || 0,
+      color: colors[idx] || "bg-gray-600",
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        dateRange: range,
+        currentData,
+        preppers,
+        meals,
+        regionData,
+        regionalPerformance,
+      },
+    });
+  } catch (error) {
+    logger.error("Revenue analytics error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch revenue analytics",
+      error: error.message,
+    });
+  }
+};
