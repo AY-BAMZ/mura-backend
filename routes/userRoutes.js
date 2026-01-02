@@ -32,7 +32,7 @@ router.put("/change-password", changePassword);
 // @desc    Delete account
 // @route   DELETE /api/user/delete-account
 // @access  Private
-router.delete("/delete-account", deleteAccount);
+router.post("/delete-account", deleteAccount);
 
 // @desc    Deactivate account
 // @route   PUT /api/user/deactivate
