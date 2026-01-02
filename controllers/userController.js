@@ -1,4 +1,8 @@
 import User from "../models/User.js";
+import Customer from "../models/Customer.js";
+import Vendor from "../models/Vendor.js";
+import Rider from "../models/Rider.js";
+import Order from "../models/Order.js";
 import bcrypt from "bcryptjs";
 import { cleanObject } from "../utils/helpers.js";
 import logger from "../config/logger.js";
@@ -130,6 +134,13 @@ export const deleteAccount = async (req, res) => {
 
     const user = await User.findById(req.user.id).select("+password");
 
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
     // Verify password
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
 
@@ -137,6 +148,57 @@ export const deleteAccount = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Incorrect password",
+      });
+    }
+
+    // Check for active orders based on user role
+    const activeStatuses = [
+      "pending",
+      "confirmed",
+      "preparing",
+      "ready",
+      "accepted",
+      "picked_up",
+      "on_the_way",
+      "arrived",
+    ];
+
+    let hasActiveOrders = false;
+
+    if (user.role === "customer") {
+      const customer = await Customer.findOne({ user: user._id });
+      if (customer) {
+        const activeOrder = await Order.findOne({
+          customer: customer._id,
+          status: { $in: activeStatuses },
+        });
+        if (activeOrder) hasActiveOrders = true;
+      }
+    } else if (user.role === "vendor") {
+      const vendor = await Vendor.findOne({ user: user._id });
+      if (vendor) {
+        const activeOrder = await Order.findOne({
+          vendor: vendor._id,
+          status: { $in: activeStatuses },
+        });
+        if (activeOrder) hasActiveOrders = true;
+      }
+    } else if (user.role === "rider") {
+      const rider = await Rider.findOne({ user: user._id });
+      if (rider) {
+        const activeOrder = await Order.findOne({
+          rider: rider._id,
+          status: { $in: activeStatuses },
+        });
+        if (activeOrder) hasActiveOrders = true;
+      }
+    }
+
+    if (hasActiveOrders) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "You have active orders. Please complete or cancel them before deleting your account.",
       });
     }
 
