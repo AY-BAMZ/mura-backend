@@ -55,6 +55,7 @@ export const register = async (req, res) => {
     user.verificationOTP = { code: otp, expiresAt };
     await user.save();
 
+    console.log("first1");
     // Create role-specific profile
     if (role === "customer") {
       await Customer.create({ user: user._id });
@@ -66,6 +67,8 @@ export const register = async (req, res) => {
     } else if (role === "rider") {
       await Rider.create({ user: user._id });
     }
+
+    console.log("first2");
 
     // Send verification email
     try {
@@ -267,7 +270,8 @@ export const resendVerification = async (req, res) => {
 
     // Send verification email
     // await sendOTPEmail(email, otp, "verification");
-
+    console.log("otp", otp);
+    await sendOTPEmail(email, otp, "verification");
     res.json({
       success: true,
       message: "Verification code sent successfully",
@@ -377,9 +381,8 @@ export const changePassword = async (req, res) => {
     const user = await User.findById(req.user.id);
 
     // Check current password
-    const isCurrentPasswordCorrect = await user.comparePassword(
-      currentPassword
-    );
+    const isCurrentPasswordCorrect =
+      await user.comparePassword(currentPassword);
     if (!isCurrentPasswordCorrect) {
       return res.status(400).json({
         success: false,

@@ -1,17 +1,46 @@
-import brevo from "@getbrevo/brevo";
 import logger from "../config/logger.js";
 
-const apiInstance = new brevo.TransactionalEmailsApi();
-let apiKey = apiInstance.authentications["apiKey"];
-apiKey.apiKey = process.env.BREVO_API_KEY; // Make sure this is set in your .env
+if (!process.env.BREVO_API_KEY) {
+  console.warn("Warning: BREVO_API_KEY is not set in environment variables");
+}
+
+if (!process.env.BREVO_SENDER_EMAIL) {
+  console.warn(
+    "Warning: BREVO_SENDER_EMAIL is not set in environment variables",
+  );
+}
+
+const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
 const SENDER = {
   name: process.env.BREVO_SENDER_NAME || "Mura Food",
-  email: process.env.BREVO_SENDER_EMAIL,
+  email: process.env.BREVO_SENDER_EMAIL || "no-reply@muraapp.com",
+};
+
+// Helper function to send email via Brevo API
+const sendBrevoEmail = async (emailData) => {
+  const response = await fetch(BREVO_API_URL, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "api-key": process.env.BREVO_API_KEY,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(emailData),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "Failed to send email");
+  }
+
+  return response.json();
 };
 
 // Send OTP email
 export const sendOTPEmail = async (email, otp, type = "verification") => {
+  console.log("first3");
+
   const subject =
     type === "verification" ? "Verify Your Account" : "Reset Your Password";
   const title =
@@ -55,20 +84,23 @@ export const sendOTPEmail = async (email, otp, type = "verification") => {
     </html>
   `;
 
-  const sendSmtpEmail = new brevo.SendSmtpEmail();
-  sendSmtpEmail.subject = subject;
-  sendSmtpEmail.htmlContent = htmlContent;
-  sendSmtpEmail.sender = SENDER;
-  sendSmtpEmail.to = [{ email }];
-
+  console.log("first4");
   try {
-    const data = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    const data = await sendBrevoEmail({
+      sender: SENDER,
+      to: [{ email }],
+      subject,
+      htmlContent,
+    });
+    console.log("first5");
     logger.info(`OTP email sent successfully to ${email}`, {
       messageId: data?.messageId,
     });
     return { success: true, messageId: data?.messageId };
   } catch (error) {
+    console.log("first6 err");
     logger.error("Failed to send OTP email", { error: error.message, email });
+    console.log("error yes", error);
     throw new Error("Failed to send OTP email");
   }
 };
@@ -113,7 +145,7 @@ export const sendOrderNotificationEmail = async (email, orderData) => {
                   <strong>${item.name}</strong> - ${item.package}<br>
                   Quantity: ${item.quantity} × $${item.price} = $${item.total}
                 </div>
-              `
+              `,
                 )
                 .join("")}
             </div>
@@ -129,14 +161,13 @@ export const sendOrderNotificationEmail = async (email, orderData) => {
     </html>
   `;
 
-  const sendSmtpEmail = new brevo.SendSmtpEmail();
-  sendSmtpEmail.subject = `Order Confirmation - ${orderData.orderNumber}`;
-  sendSmtpEmail.htmlContent = htmlContent;
-  sendSmtpEmail.sender = SENDER;
-  sendSmtpEmail.to = [{ email }];
-
   try {
-    const data = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    const data = await sendBrevoEmail({
+      sender: SENDER,
+      to: [{ email }],
+      subject: `Order Confirmation - ${orderData.orderNumber}`,
+      htmlContent,
+    });
     logger.info(`Order notification email sent to ${email}`, {
       messageId: data?.messageId,
     });
@@ -183,14 +214,13 @@ export const sendNotificationEmail = async (email, subject, content) => {
     </html>
   `;
 
-  const sendSmtpEmail = new brevo.SendSmtpEmail();
-  sendSmtpEmail.subject = subject;
-  sendSmtpEmail.htmlContent = htmlContent;
-  sendSmtpEmail.sender = SENDER;
-  sendSmtpEmail.to = [{ email }];
-
   try {
-    const data = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    const data = await sendBrevoEmail({
+      sender: SENDER,
+      to: [{ email }],
+      subject,
+      htmlContent,
+    });
     logger.info(`Notification email sent to ${email}`, {
       messageId: data?.messageId,
     });
