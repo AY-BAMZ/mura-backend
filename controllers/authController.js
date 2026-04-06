@@ -7,6 +7,22 @@ import { sendOTPEmail } from "../utils/email.js";
 import { sendOTPSMS } from "../utils/sms.js";
 import logger from "../config/logger.js";
 
+const ensureVendorProfile = async (user) => {
+  if (user.role !== "vendor") {
+    return;
+  }
+
+  const existingVendor = await Vendor.findOne({ user: user._id });
+  if (existingVendor) {
+    return;
+  }
+
+  await Vendor.create({
+    user: user._id,
+    businessName: `${user.firstName} ${user.lastName}'s Kitchen`,
+  });
+};
+
 // @desc    Register user
 // @route   POST /api/auth/register
 // @access  Public
@@ -140,6 +156,8 @@ export const login = async (req, res) => {
     // Update last login without triggering password hash
     await User.findByIdAndUpdate(user._id, { lastLogin: new Date() });
 
+    await ensureVendorProfile(user);
+
     // Generate token
     const token = generateToken(user._id);
 
@@ -211,6 +229,8 @@ export const verifyAccount = async (req, res) => {
     user.isVerified = true;
     user.verificationOTP = undefined;
     await user.save();
+
+    await ensureVendorProfile(user);
 
     // Generate token
     const token = generateToken(user._id);

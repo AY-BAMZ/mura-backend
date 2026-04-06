@@ -16,6 +16,37 @@ import {
 } from "../utils/pushNotification.js";
 import logger from "../config/logger.js";
 
+const findOrCreateVendorProfile = async (userId, options = {}) => {
+  const { populateUser = false } = options;
+  const vendorQuery = Vendor.findOne({ user: userId });
+
+  if (populateUser) {
+    vendorQuery.populate("user", "-password");
+  }
+
+  let vendor = await vendorQuery;
+  if (vendor) {
+    return vendor;
+  }
+
+  const user = await User.findById(userId).select("firstName lastName role");
+  if (!user || user.role !== "vendor") {
+    return null;
+  }
+
+  const businessName = `${user.firstName} ${user.lastName}'s Kitchen`;
+  vendor = await Vendor.create({
+    user: user._id,
+    businessName,
+  });
+
+  if (!populateUser) {
+    return vendor;
+  }
+
+  return Vendor.findById(vendor._id).populate("user", "-password");
+};
+
 // @desc    Get vendor profile
 // @route   GET /api/vendor/profile
 // @access  Private (Vendor)
@@ -24,7 +55,7 @@ import logger from "../config/logger.js";
 // @access  Private (Vendor)
 export const withdrawEarnings = async (req, res) => {
   try {
-    const vendor = await Vendor.findOne({ user: req.user.id });
+    const vendor = await findOrCreateVendorProfile(req.user.id);
     if (!vendor) {
       return res
         .status(404)
@@ -79,10 +110,9 @@ export const withdrawEarnings = async (req, res) => {
 
 export const getVendorProfile = async (req, res) => {
   try {
-    const vendor = await Vendor.findOne({ user: req.user.id }).populate(
-      "user",
-      "-password",
-    );
+    const vendor = await findOrCreateVendorProfile(req.user.id, {
+      populateUser: true,
+    });
 
     if (!vendor) {
       return res.status(404).json({
@@ -128,7 +158,7 @@ export const updateVendorProfile = async (req, res) => {
       profileSet,
     } = req.body;
 
-    const vendor = await Vendor.findOne({ user: req.user.id });
+    const vendor = await findOrCreateVendorProfile(req.user.id);
     if (!vendor) {
       return res.status(404).json({
         success: false,
@@ -196,7 +226,7 @@ export const createMealGroup = async (req, res) => {
   try {
     const { name, description } = req.body;
 
-    const vendor = await Vendor.findOne({ user: req.user.id });
+    const vendor = await findOrCreateVendorProfile(req.user.id);
     if (!vendor) {
       return res.status(404).json({
         success: false,
@@ -229,7 +259,7 @@ export const createMealGroup = async (req, res) => {
 // @access  Private (Vendor)
 export const getMealGroups = async (req, res) => {
   try {
-    const vendor = await Vendor.findOne({ user: req.user.id });
+    const vendor = await findOrCreateVendorProfile(req.user.id);
     if (!vendor) {
       return res.status(404).json({
         success: false,
@@ -277,7 +307,7 @@ export const createMeal = async (req, res) => {
       protein,
     } = req.body;
 
-    const vendor = await Vendor.findOne({ user: req.user.id });
+    const vendor = await findOrCreateVendorProfile(req.user.id);
     if (!vendor) {
       return res.status(404).json({
         success: false,
@@ -341,7 +371,7 @@ export const createMeal = async (req, res) => {
 // @access  Private (Vendor)
 export const getVendorMealTypes = async (req, res) => {
   try {
-    const vendor = await Vendor.findOne({ user: req.user.id });
+    const vendor = await findOrCreateVendorProfile(req.user.id);
     if (!vendor) {
       return res.status(404).json({
         success: false,
@@ -376,7 +406,7 @@ export const getVendorMeals = async (req, res) => {
     } = req.query;
     const { skip, limit: limitNum } = getPagination(page, limit);
 
-    const vendor = await Vendor.findOne({ user: req.user.id });
+    const vendor = await findOrCreateVendorProfile(req.user.id);
     if (!vendor) {
       return res.status(404).json({
         success: false,
@@ -435,7 +465,7 @@ export const getVendorMeals = async (req, res) => {
 // @access  Private (Vendor)
 export const updateMeal = async (req, res) => {
   try {
-    const vendor = await Vendor.findOne({ user: req.user.id });
+    const vendor = await findOrCreateVendorProfile(req.user.id);
     if (!vendor) {
       return res.status(404).json({
         success: false,
@@ -478,7 +508,7 @@ export const updateMeal = async (req, res) => {
 // @access  Private (Vendor)
 export const deleteMeal = async (req, res) => {
   try {
-    const vendor = await Vendor.findOne({ user: req.user.id });
+    const vendor = await findOrCreateVendorProfile(req.user.id);
     if (!vendor) {
       return res.status(404).json({
         success: false,
@@ -523,7 +553,7 @@ export const getVendorOrders = async (req, res) => {
     const { page = 1, limit = 10, status, startDate, endDate } = req.query;
     const { skip, limit: limitNum } = getPagination(page, limit);
 
-    const vendor = await Vendor.findOne({ user: req.user.id });
+    const vendor = await findOrCreateVendorProfile(req.user.id);
     if (!vendor) {
       return res.status(404).json({
         success: false,
@@ -577,7 +607,7 @@ export const getVendorOrders = async (req, res) => {
 
 export const getVendorOrderById = async (req, res) => {
   try {
-    const vendor = await Vendor.findOne({ user: req.user.id });
+    const vendor = await findOrCreateVendorProfile(req.user.id);
     if (!vendor) {
       return res.status(404).json({
         success: false,
@@ -628,7 +658,7 @@ export const updateOrderStatus = async (req, res) => {
   try {
     const { status, notes } = req.body;
 
-    const vendor = await Vendor.findOne({ user: req.user.id });
+    const vendor = await findOrCreateVendorProfile(req.user.id);
     if (!vendor) {
       return res.status(404).json({
         success: false,
@@ -744,7 +774,7 @@ export const getVendorAnalytics = async (req, res) => {
   try {
     const { period = "30d" } = req.query;
 
-    const vendor = await Vendor.findOne({ user: req.user.id });
+    const vendor = await findOrCreateVendorProfile(req.user.id);
     if (!vendor) {
       return res.status(404).json({
         success: false,
@@ -868,7 +898,7 @@ export const getVendorAnalytics = async (req, res) => {
 // @access  Private (Vendor)
 export const getVendorEarnings = async (req, res) => {
   try {
-    const vendor = await Vendor.findOne({ user: req.user.id });
+    const vendor = await findOrCreateVendorProfile(req.user.id);
     if (!vendor) {
       return res.status(404).json({
         success: false,
@@ -898,7 +928,7 @@ export const updateBankDetails = async (req, res) => {
   try {
     const { accountName, accountNumber, bankName, routingNumber } = req.body;
 
-    const vendor = await Vendor.findOne({ user: req.user.id });
+    const vendor = await findOrCreateVendorProfile(req.user.id);
     if (!vendor) {
       return res.status(404).json({
         success: false,
@@ -934,7 +964,7 @@ export const getVendorReviews = async (req, res) => {
     const { page = 1, limit = 10 } = req.query;
     const { skip, limit: limitNum } = getPagination(page, limit);
 
-    const vendor = await Vendor.findOne({ user: req.user.id });
+    const vendor = await findOrCreateVendorProfile(req.user.id);
     if (!vendor) {
       return res.status(404).json({
         success: false,
