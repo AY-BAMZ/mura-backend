@@ -1,5 +1,7 @@
 import Vendor from "../models/Vendor.js";
 import User from "../models/User.js";
+import Customer from "../models/Customer.js";
+import Rider from "../models/Rider.js";
 import { Meal, MealGroup } from "../models/Meal.js";
 import Order from "../models/Order.js";
 import {
@@ -7,6 +9,11 @@ import {
   getPagination,
   cleanObject,
 } from "../utils/helpers.js";
+import {
+  sendPushToUser,
+  sendPushToUsers,
+  OrderNotifications,
+} from "../utils/pushNotification.js";
 import logger from "../config/logger.js";
 
 // @desc    Get vendor profile
@@ -74,7 +81,7 @@ export const getVendorProfile = async (req, res) => {
   try {
     const vendor = await Vendor.findOne({ user: req.user.id }).populate(
       "user",
-      "-password"
+      "-password",
     );
 
     if (!vendor) {
@@ -150,14 +157,14 @@ export const updateVendorProfile = async (req, res) => {
       await User.findByIdAndUpdate(
         vendor.user._id || vendor.user,
         { location },
-        { new: true }
+        { new: true },
       );
     }
     if (profileSet) {
       await User.findByIdAndUpdate(
         vendor.user._id || vendor.user,
         { profileSet: true },
-        { new: true }
+        { new: true },
       );
     }
 
@@ -165,7 +172,7 @@ export const updateVendorProfile = async (req, res) => {
 
     const updatedVendor = await Vendor.findById(vendor._id).populate(
       "user",
-      "-password"
+      "-password",
     );
 
     res.json({
@@ -658,6 +665,64 @@ export const updateOrderStatus = async (req, res) => {
       timestamp: new Date(),
     });
 
+    // Send push notifications based on status change
+    try {
+      // Find customer's user ID for this order
+      const customerDoc = await Customer.findById(order.customer);
+      const customerUserId = customerDoc?.user;
+
+      if (customerUserId) {
+        let notif;
+        switch (status) {
+          case "confirmed":
+            notif = OrderNotifications.orderConfirmed(order);
+            break;
+          case "preparing":
+            notif = OrderNotifications.orderPreparing(order);
+            break;
+          case "ready": {
+            notif = OrderNotifications.orderReady(order);
+            // Also notify nearby online riders about new available delivery
+            const onlineRiders = await Rider.find({
+              "availability.isOnline": true,
+              isApproved: true,
+              isActive: true,
+            }).select("user");
+            if (onlineRiders.length > 0) {
+              const riderUserIds = onlineRiders.map((r) => r.user);
+              const deliveryNotif = OrderNotifications.newDeliveryAvailable(
+                order,
+                vendor.businessName,
+              );
+              await sendPushToUsers(riderUserIds, {
+                title: deliveryNotif.title,
+                body: deliveryNotif.body,
+                data: deliveryNotif.data,
+                type: "order_status",
+                priority: "high",
+              });
+            }
+            break;
+          }
+          default:
+            notif = null;
+        }
+
+        if (notif) {
+          await sendPushToUser(customerUserId, {
+            title: notif.title,
+            body: notif.body,
+            data: notif.data,
+            type: "order_status",
+          });
+        }
+      }
+    } catch (notifError) {
+      logger.error("Failed to send status update notifications", {
+        error: notifError.message,
+      });
+    }
+
     res.json({
       success: true,
       message: "Order status updated successfully",
@@ -747,13 +812,13 @@ export const getVendorAnalytics = async (req, res) => {
 
     // Calculate metrics
     const completedOrders = orders.filter(
-      (order) => order.status === "delivered"
+      (order) => order.status === "delivered",
     ).length;
     const cancelledOrders = orders.filter(
-      (order) => order.status === "cancelled"
+      (order) => order.status === "cancelled",
     ).length;
     const pendingOrders = orders.filter((order) =>
-      ["pending", "confirmed", "preparing"].includes(order.status)
+      ["pending", "confirmed", "preparing"].includes(order.status),
     ).length;
 
     const analytics = {

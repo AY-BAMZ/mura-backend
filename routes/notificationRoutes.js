@@ -4,6 +4,8 @@ import {
   markNotificationAsRead,
   markAllNotificationsAsRead,
   deleteNotification,
+  registerPushToken,
+  removePushToken,
 } from "../controllers/notificationController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -11,6 +13,16 @@ const router = express.Router();
 
 // All routes require authentication
 router.use(protect);
+
+// @desc    Register Expo push token
+// @route   POST /api/notifications/register-token
+// @access  Private
+router.post("/register-token", registerPushToken);
+
+// @desc    Remove push token (on logout)
+// @route   DELETE /api/notifications/push-token
+// @access  Private
+router.delete("/push-token", removePushToken);
 
 // @desc    Get user notifications
 // @route   GET /api/notifications

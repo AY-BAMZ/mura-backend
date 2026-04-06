@@ -1,12 +1,18 @@
 import Rider from "../models/Rider.js";
 import User from "../models/User.js";
 import Order from "../models/Order.js";
+import Customer from "../models/Customer.js";
+import Vendor from "../models/Vendor.js";
 import {
   formatResponse,
   getPagination,
   cleanObject,
   calculateDistance,
 } from "../utils/helpers.js";
+import {
+  sendPushToUser,
+  OrderNotifications,
+} from "../utils/pushNotification.js";
 import { processOrderEarnings } from "./walletController.js";
 import logger from "../config/logger.js";
 
@@ -17,7 +23,7 @@ export const getRiderProfile = async (req, res) => {
   try {
     const rider = await Rider.findOne({ user: req.user.id }).populate(
       "user",
-      "-password"
+      "-password",
     );
 
     if (!rider) {
@@ -74,14 +80,14 @@ export const updateRiderProfile = async (req, res) => {
       await User.findByIdAndUpdate(
         rider.user._id || rider.user,
         { location },
-        { new: true }
+        { new: true },
       );
     }
     if (profileSet) {
       await User.findByIdAndUpdate(
         rider.user._id || rider.user,
         { profileSet: true },
-        { new: true }
+        { new: true },
       );
     }
 
@@ -89,7 +95,7 @@ export const updateRiderProfile = async (req, res) => {
 
     const updatedRider = await Rider.findById(rider._id).populate(
       "user",
-      "-password"
+      "-password",
     );
 
     res.json({
@@ -340,6 +346,43 @@ export const acceptDelivery = async (req, res) => {
       timestamp: new Date(),
     });
 
+    // Send push notifications for rider acceptance
+    try {
+      const riderName = `${req.user.firstName} ${req.user.lastName}`;
+
+      // Notify customer that a rider accepted
+      const customerDoc = await Customer.findById(order.customer);
+      if (customerDoc) {
+        const custNotif = OrderNotifications.riderAccepted(order, riderName);
+        await sendPushToUser(customerDoc.user, {
+          title: custNotif.title,
+          body: custNotif.body,
+          data: custNotif.data,
+          type: "order_status",
+          priority: "high",
+        });
+      }
+
+      // Notify vendor that rider is on the way
+      const vendorDoc = await Vendor.findById(order.vendor);
+      if (vendorDoc) {
+        const vendorNotif = OrderNotifications.riderAcceptedForVendor(
+          order,
+          riderName,
+        );
+        await sendPushToUser(vendorDoc.user, {
+          title: vendorNotif.title,
+          body: vendorNotif.body,
+          data: vendorNotif.data,
+          type: "order_status",
+        });
+      }
+    } catch (notifError) {
+      logger.error("Failed to send rider acceptance notifications", {
+        error: notifError.message,
+      });
+    }
+
     res.json({
       success: true,
       message: "Delivery accepted successfully",
@@ -543,6 +586,63 @@ export const updateDeliveryStatus = async (req, res) => {
       timestamp: new Date(),
     });
 
+    // Send push notifications based on delivery status
+    try {
+      const customerDoc = await Customer.findById(order.customer);
+      const customerUserId = customerDoc?.user;
+
+      if (customerUserId) {
+        let notif;
+        switch (status) {
+          case "picked_up":
+            notif = OrderNotifications.orderPickedUp(order);
+            break;
+          case "on_the_way":
+            notif = OrderNotifications.orderOnTheWay(order);
+            break;
+          case "arrived":
+            notif = OrderNotifications.riderArrived(order);
+            break;
+          case "delivered": {
+            // Notify customer
+            notif = OrderNotifications.orderDelivered(order);
+            // Also notify vendor
+            const vendorDoc = await Vendor.findById(order.vendor);
+            if (vendorDoc) {
+              const vendorNotif =
+                OrderNotifications.orderDeliveredForVendor(order);
+              await sendPushToUser(vendorDoc.user, {
+                title: vendorNotif.title,
+                body: vendorNotif.body,
+                data: vendorNotif.data,
+                type: "order_status",
+              });
+            }
+            break;
+          }
+          default:
+            notif = null;
+        }
+
+        if (notif) {
+          await sendPushToUser(customerUserId, {
+            title: notif.title,
+            body: notif.body,
+            data: notif.data,
+            type: "order_status",
+            priority:
+              status === "arrived" || status === "delivered"
+                ? "high"
+                : "medium",
+          });
+        }
+      }
+    } catch (notifError) {
+      logger.error("Failed to send delivery status notifications", {
+        error: notifError.message,
+      });
+    }
+
     res.json({
       success: true,
       message: "Delivery status updated successfully",
@@ -603,10 +703,10 @@ export const getRiderAnalytics = async (req, res) => {
     });
 
     const completedDeliveries = orders.filter(
-      (order) => order.status === "delivered"
+      (order) => order.status === "delivered",
     ).length;
     const cancelledDeliveries = orders.filter(
-      (order) => order.status === "cancelled"
+      (order) => order.status === "cancelled",
     ).length;
 
     // Calculate total earnings for the period
@@ -617,14 +717,14 @@ export const getRiderAnalytics = async (req, res) => {
     // Calculate average delivery time
     const deliveredOrders = orders.filter(
       (order) =>
-        order.status === "delivered" && order.deliveryInfo.actualDeliveryTime
+        order.status === "delivered" && order.deliveryInfo.actualDeliveryTime,
     );
 
     let averageDeliveryTime = 0;
     if (deliveredOrders.length > 0) {
       const totalTime = deliveredOrders.reduce((sum, order) => {
         const pickupTime = order.timeline.find(
-          (t) => t.status === "picked_up"
+          (t) => t.status === "picked_up",
         )?.timestamp;
         const deliveryTime = order.deliveryInfo.actualDeliveryTime;
 
@@ -635,7 +735,7 @@ export const getRiderAnalytics = async (req, res) => {
       }, 0);
 
       averageDeliveryTime = Math.round(
-        totalTime / (deliveredOrders.length * 60000)
+        totalTime / (deliveredOrders.length * 60000),
       ); // Convert to minutes
     }
 

@@ -21,6 +21,7 @@ export const updateUserProfile = async (req, res) => {
       notificationSettings,
       coordinates,
       address,
+      profileSet,
     } = req.body;
 
     const user = await User.findById(req.user.id);
@@ -33,6 +34,7 @@ export const updateUserProfile = async (req, res) => {
       phone: phone || user.phone,
       profileImage: profileImage || user.profileImage,
       notificationSettings: notificationSettings || user.notificationSettings,
+      profileSet: profileSet !== undefined ? profileSet : user.profileSet,
       location: {
         type: "Point",
         coordinates: coordinates
@@ -90,7 +92,7 @@ export const changePassword = async (req, res) => {
     // Check current password
     const isCurrentPasswordCorrect = await bcrypt.compare(
       currentPassword,
-      user.password
+      user.password,
     );
 
     if (!isCurrentPasswordCorrect) {

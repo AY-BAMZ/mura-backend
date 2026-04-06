@@ -1,6 +1,64 @@
 import Notification from "../models/Notification.js";
+import User from "../models/User.js";
+import { Expo } from "expo-server-sdk";
 import { getPagination } from "../utils/helpers.js";
 import logger from "../config/logger.js";
+
+// @desc    Register/update Expo push token
+// @route   POST /api/notifications/register-token
+// @access  Private
+export const registerPushToken = async (req, res) => {
+  try {
+    const { expoPushToken } = req.body;
+
+    if (!expoPushToken) {
+      return res.status(400).json({
+        success: false,
+        message: "Expo push token is required",
+      });
+    }
+
+    if (!Expo.isExpoPushToken(expoPushToken)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Expo push token format",
+      });
+    }
+
+    await User.findByIdAndUpdate(req.user.id, { expoToken: expoPushToken });
+
+    res.json({
+      success: true,
+      message: "Push token registered successfully",
+    });
+  } catch (error) {
+    logger.error("Register push token error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+// @desc    Remove Expo push token (on logout)
+// @route   DELETE /api/notifications/push-token
+// @access  Private
+export const removePushToken = async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.user.id, { expoToken: null });
+
+    res.json({
+      success: true,
+      message: "Push token removed successfully",
+    });
+  } catch (error) {
+    logger.error("Remove push token error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
 
 // @desc    Get user notifications
 // @route   GET /api/notifications
@@ -90,7 +148,7 @@ export const markAllNotificationsAsRead = async (req, res) => {
   try {
     await Notification.updateMany(
       { recipient: req.user.id, isRead: false },
-      { isRead: true, readAt: new Date() }
+      { isRead: true, readAt: new Date() },
     );
 
     res.json({

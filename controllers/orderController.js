@@ -1,10 +1,16 @@
 import Order from "../models/Order.js";
 import Customer from "../models/Customer.js";
 import Vendor from "../models/Vendor.js";
+import Rider from "../models/Rider.js";
+import User from "../models/User.js";
 import { Meal } from "../models/Meal.js";
 import Notification from "../models/Notification.js";
 import { calculateOrderTotal, generateDeliveryCode } from "../utils/helpers.js";
 import { sendOrderNotificationEmail } from "../utils/email.js";
+import {
+  sendPushToUser,
+  OrderNotifications,
+} from "../utils/pushNotification.js";
 import stripe from "../config/stripe.js";
 import logger from "../config/logger.js";
 import { getDistanceFromLatLonInKm } from "./customerController.js";
@@ -38,7 +44,7 @@ export const createOrder = async (req, res) => {
 
     // Filter cart items for this vendor
     const cartItems = customer.cart.filter(
-      (item) => item.meal && item.meal.vendor?.toString() === vendorId
+      (item) => item.meal && item.meal.vendor?.toString() === vendorId,
     );
     if (cartItems.length === 0) {
       return res
@@ -49,7 +55,7 @@ export const createOrder = async (req, res) => {
     // Calculate item amount
     const itemAmount = cartItems.reduce(
       (sum, item) => sum + item.price * item.quantity,
-      0
+      0,
     );
     const serviceCharge = 1;
     const vat = 1;
@@ -80,7 +86,7 @@ export const createOrder = async (req, res) => {
       customerLat,
       customerLng,
       vendorLat,
-      vendorLng
+      vendorLng,
     );
     let deliveryFee = 5 + Math.ceil(distance) * 2;
     if (deliveryFee < 5) deliveryFee = 5;
@@ -140,7 +146,7 @@ export const createOrder = async (req, res) => {
         scheduledDate: new Date(deliveryDate),
         estimatedTime: new Date(
           Date.now() +
-            (vendor.deliveryInfo?.estimatedDeliveryTime || 30) * 60000
+            (vendor.deliveryInfo?.estimatedDeliveryTime || 30) * 60000,
         ),
       },
       paymentInfo: {
@@ -200,7 +206,7 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    // Send notifications (same as before)
+    // Send notifications
     try {
       const mealIds = orderItems.map((item) => item.meal);
       const mealsMap = {};
@@ -221,13 +227,27 @@ export const createOrder = async (req, res) => {
         total: totalAmount,
       };
       await sendOrderNotificationEmail(req.user.email, orderData);
-      await Notification.create({
-        recipient: vendor.user,
+
+      // Push notification to vendor: new order received
+      const vendorNotif = OrderNotifications.newOrderForVendor(order);
+      await sendPushToUser(vendor.user, {
+        title: vendorNotif.title,
+        body: vendorNotif.body,
+        data: vendorNotif.data,
         type: "order_status",
-        title: "New Order Received",
-        message: `You have received a new order #${order.orderNumber}`,
-        data: { orderId: order._id },
+        priority: "high",
       });
+
+      // Push notification to customer: order confirmed (if payment succeeded)
+      if (order.paymentStatus === "completed") {
+        const customerNotif = OrderNotifications.orderConfirmed(order);
+        await sendPushToUser(req.user.id, {
+          title: customerNotif.title,
+          body: customerNotif.body,
+          data: customerNotif.data,
+          type: "order_status",
+        });
+      }
     } catch (error) {
       logger.error("Failed to send order notifications", {
         error: error.message,
@@ -313,7 +333,7 @@ export const createSubscriptionOrder = async (req, res) => {
     const deliveryFee = meal.vendor.deliveryInfo.deliveryFee || 0;
     const pricing = calculateOrderTotal(
       [{ price: subscriptionPrice / quantity, quantity }],
-      deliveryFee
+      deliveryFee,
     );
 
     // Create Stripe subscription
@@ -510,6 +530,52 @@ export const cancelOrder = async (req, res) => {
       timestamp: new Date(),
     });
 
+    // Send push notifications for cancellation
+    try {
+      const cancelledBy =
+        req.user.role === "vendor"
+          ? "the vendor"
+          : req.user.role === "admin"
+            ? "admin"
+            : "the customer";
+      const cancelNotif = OrderNotifications.orderCancelled(order, cancelledBy);
+
+      // Notify customer (if vendor/admin cancelled)
+      if (req.user.role !== "customer" && order.customer?.user) {
+        const customerUser = await Customer.findById(
+          order.customer._id || order.customer,
+        );
+        if (customerUser) {
+          await sendPushToUser(customerUser.user, {
+            title: cancelNotif.title,
+            body: cancelNotif.body,
+            data: cancelNotif.data,
+            type: "order_status",
+            priority: "high",
+          });
+        }
+      }
+
+      // Notify vendor (if customer/admin cancelled)
+      if (req.user.role !== "vendor" && order.vendor?.user) {
+        const vendorDoc = await Vendor.findById(
+          order.vendor._id || order.vendor,
+        );
+        if (vendorDoc) {
+          await sendPushToUser(vendorDoc.user, {
+            title: cancelNotif.title,
+            body: cancelNotif.body,
+            data: cancelNotif.data,
+            type: "order_status",
+          });
+        }
+      }
+    } catch (notifError) {
+      logger.error("Failed to send cancellation notifications", {
+        error: notifError.message,
+      });
+    }
+
     res.json({
       success: true,
       message: "Order cancelled successfully",
@@ -608,6 +674,34 @@ export const rateOrder = async (req, res) => {
 
     await order.save();
 
+    // Send push notifications for new ratings
+    try {
+      if (vendorRating && order.vendor) {
+        const vendorDoc = order.vendor;
+        const ratingNotif = OrderNotifications.newRating(order, vendorRating);
+        await sendPushToUser(vendorDoc.user, {
+          title: ratingNotif.title,
+          body: ratingNotif.body,
+          data: ratingNotif.data,
+          type: "review",
+        });
+      }
+      if (riderRating && order.rider) {
+        const riderDoc = order.rider;
+        const ratingNotif = OrderNotifications.newRating(order, riderRating);
+        await sendPushToUser(riderDoc.user, {
+          title: ratingNotif.title,
+          body: ratingNotif.body,
+          data: ratingNotif.data,
+          type: "review",
+        });
+      }
+    } catch (notifError) {
+      logger.error("Failed to send rating notifications", {
+        error: notifError.message,
+      });
+    }
+
     res.json({
       success: true,
       message: "Rating submitted successfully",
@@ -633,7 +727,7 @@ export const handleStripeWebhook = async (req, res) => {
     event = stripe.webhooks.constructEvent(
       req.body,
       sig,
-      process.env.STRIPE_WEBHOOK_SECRET
+      process.env.STRIPE_WEBHOOK_SECRET,
     );
   } catch (err) {
     logger.error("Webhook signature verification failed", {
@@ -709,7 +803,7 @@ const handlePaymentFailure = async (paymentIntent) => {
 const handleSubscriptionPayment = async (invoice) => {
   // Create order from subscription
   const subscription = await stripe.subscriptions.retrieve(
-    invoice.subscription
+    invoice.subscription,
   );
   const customerId = subscription.metadata.customerId;
   const mealId = subscription.metadata.mealId;
