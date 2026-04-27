@@ -139,19 +139,19 @@ app.get("/health", (req, res) => {
 });
 
 // API routes
-app.use("/api/api/auth", authRoutes);
-app.use("/api/api/user", userRoutes);
-app.use("/api/api/admin", adminRoutes);
-app.use("/api/api/admin/dashboard", adminDashboardRoutes);
-app.use("/api/api/vendor", vendorRoutes);
-app.use("/api/api/customer", customerRoutes);
-app.use("/api/api/rider", riderRoutes);
-app.use("/api/api/meals", mealRoutes);
-app.use("/api/api/orders", orderRoutes);
-app.use("/api/api/payment", paymentRoutes);
-app.use("/api/api/notifications", notificationRoutes);
-app.use("/api/api/utility", utilityRoutes);
-app.use("/api/api/wallet", walletRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/user", userRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/admin/dashboard", adminDashboardRoutes);
+app.use("/api/vendor", vendorRoutes);
+app.use("/api/customer", customerRoutes);
+app.use("/api/rider", riderRoutes);
+app.use("/api/meals", mealRoutes);
+app.use("/api/orders", orderRoutes);
+app.use("/api/payment", paymentRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/utility", utilityRoutes);
+app.use("/api/wallet", walletRoutes);
 
 // Error handling middleware
 app.use(notFound);
