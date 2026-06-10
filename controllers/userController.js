@@ -26,7 +26,7 @@ export const updateUserProfile = async (req, res) => {
 
     const user = await User.findById(req.user.id);
 
-    console.log("req.body", req.body);
+    logger.debug("Profile update request", { userId: req.user.id });
     const updateData = cleanObject({
       firstName: firstName || user.firstName,
       lastName: lastName || user.lastName,
@@ -44,7 +44,7 @@ export const updateUserProfile = async (req, res) => {
       },
     });
 
-    console.log("updateData", updateData);
+    logger.debug("Profile update data prepared", { userId: req.user.id });
     Object.assign(user, updateData);
     await user.save();
 

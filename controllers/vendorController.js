@@ -167,17 +167,23 @@ export const updateVendorProfile = async (req, res) => {
     }
 
     // Update vendor data
+    const existingImages = vendor.images || {};
+    const imagesToSave = images
+      ? {
+        logo: images.logo !== undefined ? images.logo : existingImages.logo,
+        banner: images.banner !== undefined ? images.banner : existingImages.banner,
+        gallery: images.gallery !== undefined ? images.gallery : (existingImages.gallery || []),
+      }
+      : existingImages;
+
+    console.log("imagesToSave", imagesToSave);
     const updateData = cleanObject({
       businessName: businessName || vendor.businessName,
       description: description || vendor.description,
       cuisine: cuisine || vendor.cuisine,
       businessHours: businessHours || vendor.businessHours,
       deliveryInfo: deliveryInfo || vendor.deliveryInfo,
-      images: {
-        logo: images.logo || vendor.images.logo,
-        banner: images.banner || vendor.images.banner,
-        gallery: [...(images.gallery || []), ...vendor.images.gallery],
-      },
+      images: imagesToSave,
     });
 
     Object.assign(vendor, updateData);
@@ -301,6 +307,7 @@ export const createMeal = async (req, res) => {
       availability,
       subscription,
       prepTime,
+      prepTimeUnit,
       images,
       mealType,
       calories,
@@ -328,6 +335,7 @@ export const createMeal = async (req, res) => {
       availability,
       subscription,
       prepTime,
+      prepTimeUnit,
       images,
       mealType,
       calories,
@@ -453,6 +461,43 @@ export const getVendorMeals = async (req, res) => {
     });
   } catch (error) {
     logger.error("Get vendor meals error", { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+// @desc    Get vendor meal by ID
+// @route   GET /api/vendor/meals/:id
+// @access  Private (Vendor)
+export const getVendorMealById = async (req, res) => {
+  try {
+    const vendor = await findOrCreateVendorProfile(req.user.id);
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor profile not found",
+      });
+    }
+
+    const meal = await Meal.findOne({ _id: req.params.id, vendor: vendor._id })
+      .populate("mealGroup", "name");
+
+    if (!meal) {
+      return res.status(404).json({
+        success: false,
+        message: "Meal not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Meal details fetched successfully",
+      data: { meal },
+    });
+  } catch (error) {
+    logger.error("Get vendor meal details error", { error: error.message });
     res.status(500).json({
       success: false,
       message: "Server error",

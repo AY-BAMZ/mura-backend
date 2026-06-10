@@ -102,6 +102,11 @@ export const validateMealCreation = [
     .isInt({ min: 0 })
     .withMessage("Preparation time must be a positive integer"),
 
+  body("prepTimeUnit")
+    .optional()
+    .isIn(["minutes", "hours", "days"])
+    .withMessage("Preparation time unit must be minutes, hours, or days"),
+
   body("images")
     .isObject()
     .withMessage("Images must be an object with main and gallery fields"),

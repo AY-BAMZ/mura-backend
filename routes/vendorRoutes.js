@@ -8,6 +8,7 @@ import {
   getVendorMeals,
   updateMeal,
   deleteMeal,
+  getVendorMealById,
   getVendorOrders,
   updateOrderStatus,
   getVendorAnalytics,
@@ -46,6 +47,7 @@ router.get("/meals", getVendorMeals);
 router.put("/meals/:id", updateMeal);
 router.delete("/meals/:id", deleteMeal);
 router.get("/meals/types", getVendorMealTypes);
+router.get("/meals/:id", getVendorMealById);
 
 // Order routes
 router.get("/orders", getVendorOrders);

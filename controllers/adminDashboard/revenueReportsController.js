@@ -868,7 +868,7 @@ export const getRevenueAnalytics = async (req, res) => {
         },
       },
     ]);
-    console.log("topMealsAgg", topMealsAgg);
+    logger.debug("Top meals aggregation completed", { count: topMealsAgg.length });
 
     const topMeals = topMealsAgg.map((m) => ({
       name: m.name || "Unknown",

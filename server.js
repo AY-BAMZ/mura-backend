@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
-import morgan from "morgan";
+import requestLogger from "./middleware/requestLogger.js";
 import rateLimit from "express-rate-limit";
 import { createServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
@@ -112,16 +112,8 @@ app.use("/api/", limiter);
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Logging middleware
-if (process.env.NODE_ENV === "development") {
-  app.use(morgan("dev"));
-} else {
-  app.use(
-    morgan("combined", {
-      stream: { write: (message) => logger.info(message.trim()) },
-    }),
-  );
-}
+// Request logging middleware
+app.use(requestLogger);
 
 // Socket.IO middleware
 app.use((req, res, next) => {
@@ -159,15 +151,15 @@ app.use(errorHandler);
 
 // Socket.IO connection handling
 io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
+  logger.info("User connected", { socketId: socket.id });
 
   socket.on("join_room", (roomId) => {
     socket.join(roomId);
-    console.log(`User ${socket.id} joined room ${roomId}`);
+    logger.debug("User joined room", { socketId: socket.id, roomId });
   });
 
   socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
+    logger.info("User disconnected", { socketId: socket.id });
   });
 });
 

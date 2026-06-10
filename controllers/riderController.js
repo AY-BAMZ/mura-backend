@@ -58,7 +58,7 @@ export const getRiderProfile = async (req, res) => {
 // @access  Private (Rider)
 export const updateRiderProfile = async (req, res) => {
   try {
-    const { vehicleInfo, availability, location, profileSet, locationRider } =
+    const { vehicleInfo, availability, location, profileSet, locationRider, documents } =
       req.body;
 
     const rider = await Rider.findOne({ user: req.user.id });
@@ -74,6 +74,7 @@ export const updateRiderProfile = async (req, res) => {
       vehicleInfo: vehicleInfo || rider.vehicleInfo,
       availability: availability || rider.availability,
       location: locationRider || rider.location,
+      documents: documents || rider.documents,
     });
     Object.assign(rider, updateData);
     if (location && location.coordinates) {
@@ -505,7 +506,7 @@ export const updateDeliveryStatus = async (req, res) => {
       rider: rider._id,
     }).select("+deliveryCode");
 
-    console.log("order", order);
+    logger.debug("Delivery status update", { orderId: req.params.id, riderId: rider._id });
 
     if (!order) {
       return res.status(404).json({
@@ -521,8 +522,7 @@ export const updateDeliveryStatus = async (req, res) => {
       });
     }
 
-    console.log("code", code);
-    console.log("order.deliveryCode", order.deliveryCode);
+    logger.debug("Delivery code validation", { orderId: req.params.id, hasCode: !!code });
     if (status === "delivered" && order.deliveryCode !== code) {
       return res.status(400).json({
         success: false,

@@ -37,7 +37,6 @@ export const register = async (req, res) => {
       phone,
     } = req.body;
 
-    console.log("req.body", req.body);
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -67,11 +66,10 @@ export const register = async (req, res) => {
 
     // Generate and save OTP
     const { otp, expiresAt } = user.generateOTP();
-    console.log("otp", otp);
+    logger.debug("Verification OTP generated", { email });
     user.verificationOTP = { code: otp, expiresAt };
     await user.save();
 
-    console.log("first1");
     // Create role-specific profile
     if (role === "customer") {
       await Customer.create({ user: user._id });
@@ -83,8 +81,6 @@ export const register = async (req, res) => {
     } else if (role === "rider") {
       await Rider.create({ user: user._id });
     }
-
-    console.log("first2");
 
     // Send verification email
     try {
@@ -160,6 +156,41 @@ export const login = async (req, res) => {
 
     // Generate token
     const token = generateToken(user._id);
+
+    // If user is not verified, resend OTP and flag the response
+    if (!user.isVerified) {
+      try {
+        const { otp, expiresAt } = user.generateOTP();
+        user.verificationOTP = { code: otp, expiresAt };
+        await user.save();
+        await sendOTPEmail(email, otp, "verification");
+        logger.info("Resent verification OTP on login", { email });
+      } catch (otpError) {
+        logger.error("Failed to resend verification OTP on login", {
+          error: otpError.message,
+          email,
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Account not verified. A new verification code has been sent.",
+        data: {
+          token,
+          requiresVerification: true,
+          user: {
+            id: user._id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            role: user.role,
+            isVerified: user.isVerified,
+            profileImage: user.profileImage,
+            profileSet: user.profileSet,
+          },
+        },
+      });
+    }
 
     res.json({
       success: true,
@@ -284,13 +315,11 @@ export const resendVerification = async (req, res) => {
     // Generate new OTP
     const { otp, expiresAt } = user.generateOTP();
 
-    console.log("otp", otp);
+    logger.debug("Resend verification OTP generated", { email });
     user.verificationOTP = { code: otp, expiresAt };
     await user.save();
 
     // Send verification email
-    // await sendOTPEmail(email, otp, "verification");
-    console.log("otp", otp);
     await sendOTPEmail(email, otp, "verification");
     res.json({
       success: true,
@@ -326,8 +355,8 @@ export const forgotPassword = async (req, res) => {
     await user.save();
 
     // Send reset password email
-    console.log("otp", otp);
-    // await sendOTPEmail(email, otp, "reset");
+    logger.debug("Password reset OTP generated", { email });
+    await sendOTPEmail(email, otp, "reset");
 
     res.json({
       success: true,

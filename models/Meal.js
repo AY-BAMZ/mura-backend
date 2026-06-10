@@ -87,6 +87,11 @@ const mealSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    prepTimeUnit: {
+      type: String,
+      enum: ["minutes", "hours", "days"],
+      default: "minutes",
+    },
     // packages removed
     reviews: [mealReviewSchema],
     ingredients: [String],

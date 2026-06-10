@@ -326,7 +326,7 @@ export const getDashboardGraphs = async (req, res) => {
   try {
     const { period, type } = req.query;
 
-    console.log("period", period);
+    logger.debug("Dashboard graphs requested", { period, type });
 
     let startDate;
     let groupBy;
