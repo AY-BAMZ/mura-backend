@@ -341,6 +341,7 @@ export const createMeal = async (req, res) => {
       calories,
       protein,
     });
+    console.log(meal)
 
     // Update vendor metrics
     vendor.metrics.totalMeals += 1;

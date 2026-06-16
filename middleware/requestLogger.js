@@ -10,12 +10,12 @@ const requestLogger = (req, res, next) => {
   // Capture the original end method to log after response is sent
   const originalEnd = res.end;
   res.end = function (...args) {
-    const duration = Date.now() - start;
+    // const duration = Date.now() - start;
     const logData = {
       method: req.method,
       url: req.originalUrl,
       status: res.statusCode,
-      duration: `${duration}ms`,
+      // duration: `${duration}ms`,
       ip: req.ip,
     };
 
