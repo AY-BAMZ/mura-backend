@@ -98,14 +98,14 @@ export const validateMealCreation = [
     .isIn(["set_meal", "meal_prep"])
     .withMessage("Category must be either set_meal or meal_prep"),
 
-  body("prepTime")
-    .isInt({ min: 0 })
-    .withMessage("Preparation time must be a positive integer"),
+  // body("prepTime")
+  //   .isInt({ min: 0 })
+  //   .withMessage("Preparation time must be a positive integer"),
 
-  body("prepTimeUnit")
-    .optional()
-    .isIn(["minutes", "hours", "days"])
-    .withMessage("Preparation time unit must be minutes, hours, or days"),
+  // body("prepTimeUnit")
+  //   .optional()
+  //   .isIn(["minutes", "hours", "days"])
+  //   .withMessage("Preparation time unit must be minutes, hours, or days"),
 
   body("images")
     .isObject()

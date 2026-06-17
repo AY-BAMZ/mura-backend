@@ -42,7 +42,7 @@ router.post("/meal-groups", createMealGroup);
 router.get("/meal-groups", getMealGroups);
 
 // Meal routes
-router.post("/meals", validateMealCreation, createMeal);
+router.post("/meals", createMeal);
 router.get("/meals", getVendorMeals);
 router.put("/meals/:id", updateMeal);
 router.delete("/meals/:id", deleteMeal);
